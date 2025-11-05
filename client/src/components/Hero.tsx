@@ -51,7 +51,7 @@ export default function Hero({ language = "en" }: HeroProps) {
             const element = document.getElementById("gallery");
             element?.scrollIntoView({ behavior: "smooth" });
           }}
-          className="bg-primary/90 hover:bg-primary text-primary-foreground backdrop-blur-sm border border-primary-border text-lg px-8 py-6 rounded-2xl"
+          className="text-lg px-8 py-6 rounded-2xl"
           data-testid="button-hero-cta"
         >
           {content.cta}

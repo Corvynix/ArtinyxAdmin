@@ -75,12 +75,10 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
               const element = document.getElementById("gallery");
               element?.scrollIntoView({ behavior: "smooth" });
             }}
-            className="hidden md:block gold-metallic-button bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 hover:from-yellow-500 hover:via-yellow-400 hover:to-yellow-500 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-yellow-400/50"
+            className="hidden md:block"
             data-testid="button-explore"
           >
-            <span className="relative z-10">
-              {currentLang === "en" ? "Explore Artworks" : "استكشف الأعمال"}
-            </span>
+            {currentLang === "en" ? "Explore Artworks" : "استكشف الأعمال"}
           </Button>
         </div>
       </div>

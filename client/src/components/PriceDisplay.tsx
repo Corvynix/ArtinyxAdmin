@@ -17,7 +17,7 @@ export default function PriceDisplay({
 
   return (
     <div className="flex items-baseline gap-3" data-testid="price-display">
-      <span className="text-3xl md:text-4xl font-bold text-primary" data-testid="text-price">
+      <span className="text-3xl md:text-4xl font-bold gold-metallic" data-testid="text-price">
         {formatPrice(price)} {currency}
       </span>
       {referencePrice && referencePrice > price && (

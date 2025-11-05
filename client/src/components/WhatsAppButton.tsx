@@ -33,7 +33,7 @@ export default function WhatsAppButton({
       <Button
         size="lg"
         onClick={handleClick}
-        className="w-full bg-primary hover:bg-primary text-primary-foreground text-lg px-8 py-6 rounded-2xl flex items-center justify-center gap-2"
+        className="w-full text-lg px-8 py-6 rounded-2xl flex items-center justify-center gap-2"
         data-testid="button-whatsapp-order"
       >
         <MessageCircle className="w-5 h-5" />

@@ -50,18 +50,21 @@ export default function ArtworkCard({
         />
         {statusLabel && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <Badge 
-              variant={status === "sold" ? "destructive" : "secondary"}
-              className="text-lg px-4 py-2"
+            <span 
+              className={`text-lg px-4 py-2 rounded-md font-semibold ${
+                status === "sold" 
+                  ? "bg-red-900/90 text-white border-2 border-red-700" 
+                  : "bg-yellow-900/90 text-yellow-100 border-2 border-yellow-700"
+              }`}
               data-testid="badge-status"
             >
               {statusLabel}
-            </Badge>
+            </span>
           </div>
         )}
         <div className="absolute top-3 right-3">
           <Badge 
-            className="bg-primary/90 text-primary-foreground border-primary-border"
+            className="gold-metallic-bg border-2 border-yellow-600/40 font-semibold"
             data-testid="badge-type"
           >
             {getTypeLabel()}
@@ -75,7 +78,7 @@ export default function ArtworkCard({
         </h3>
         {status === "available" && (
           <p className="text-muted-foreground" data-testid="text-price-from">
-            {language === "en" ? "from" : "من"} <span className="text-primary font-semibold text-lg">{priceFrom.toLocaleString()} EGP</span>
+            {language === "en" ? "from" : "من"} <span className="gold-metallic font-semibold text-lg">{priceFrom.toLocaleString()} EGP</span>
           </p>
         )}
       </div>

@@ -48,9 +48,9 @@
 
   --popover-border: 30 10% 86%;
 
-  --primary: 43 58% 55%;
+  --primary: 43 55% 53%;
 
-  --primary-foreground: 0 0% 98%;
+  --primary-foreground: 0 0% 5%;
 
   --secondary: 30 8% 88%;
 
@@ -166,9 +166,9 @@
 
   --popover-border: 0 0% 18%;
 
-  --primary: 43 58% 30%;
+  --primary: 43 60% 50%;
 
-  --primary-foreground: 43 10% 98%;
+  --primary-foreground: 0 0% 5%;
 
   --secondary: 30 6% 16%;
 
@@ -265,23 +265,41 @@
  */
 @layer utilities {
 
-  /* Metallic Gold Shimmer Effect */
+  /* Metallic Gold Shimmer Effect for Text */
   .gold-metallic {
     background: linear-gradient(
       110deg,
-      #B8860B 0%,
-      #D4AF37 20%,
-      #FFD700 40%,
-      #F0E68C 50%,
-      #FFD700 60%,
-      #D4AF37 80%,
-      #B8860B 100%
+      #A89050 0%,
+      #C8A951 15%,
+      #E8C965 35%,
+      #F5D97A 50%,
+      #E8C965 65%,
+      #C8A951 85%,
+      #A89050 100%
     );
     background-size: 200% 100%;
     animation: shimmer 3s linear infinite;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  /* Metallic Gold Shimmer for Backgrounds */
+  .gold-metallic-bg {
+    background: linear-gradient(
+      110deg,
+      #A89050 0%,
+      #C8A951 15%,
+      #E8C965 35%,
+      #F5D97A 50%,
+      #E8C965 65%,
+      #C8A951 85%,
+      #A89050 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+    color: #0E0E0E;
+    box-shadow: 0 4px 15px rgba(200, 169, 81, 0.4);
   }
 
   @keyframes shimmer {
@@ -291,6 +309,20 @@
     100% {
       background-position: 200% 0;
     }
+  }
+
+  /* Pulse animation for scarcity */
+  @keyframes goldPulse {
+    0%, 100% {
+      box-shadow: 0 0 10px rgba(200, 169, 81, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(200, 169, 81, 0.8);
+    }
+  }
+
+  .gold-pulse {
+    animation: goldPulse 2s ease-in-out infinite;
   }
 
   /* Liquid Glass Black Effect */
