@@ -55,7 +55,8 @@ export const artworksAPI = {
 
 export const ordersAPI = {
   create: async (order: CreateOrderRequest) => {
-    return apiRequest("POST", "/api/orders", order);
+    const response = await apiRequest("POST", "/api/orders", order);
+    return response.json();
   }
 };
 

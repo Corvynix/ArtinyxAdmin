@@ -50,24 +50,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const holdExpiresAt = new Date();
       holdExpiresAt.setHours(holdExpiresAt.getHours() + 24);
 
-      // Create order
-      const order = await storage.createOrder({
-        ...orderData,
-        holdExpiresAt,
-        status: "pending"
-      });
+      // Decrement stock first (atomic operation)
+      const stockDecremented = await storage.decrementStock(artwork.id, orderData.size);
+      if (!stockDecremented) {
+        return res.status(400).json({ error: "Failed to reserve stock" });
+      }
 
-      // Decrement stock
-      const updatedSizes: Record<string, { price_cents: number; total_copies: number; remaining: number }> = { ...artwork.sizes };
-      updatedSizes[orderData.size].remaining -= 1;
-      await storage.updateArtwork(artwork.id, { sizes: updatedSizes });
+      let order;
+      try {
+        // Create order
+        order = await storage.createOrder({
+          ...orderData,
+          holdExpiresAt,
+          status: "pending"
+        });
 
-      // Log analytics event
-      await storage.createAnalyticsEvent({
-        eventType: "order_created",
-        artworkId: artwork.id,
-        meta: { orderId: order.id, size: orderData.size } as any
-      });
+        // Log analytics event
+        await storage.createAnalyticsEvent({
+          eventType: "order_created",
+          artworkId: artwork.id,
+          meta: { orderId: order.id, size: orderData.size } as any
+        });
+      } catch (error) {
+        // Rollback stock if order creation or analytics fails
+        await storage.incrementStock(artwork.id, orderData.size);
+        throw error;
+      }
 
       res.json({ 
         order,
@@ -175,21 +183,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update order status to cancelled
         await storage.updateOrderStatus(order.id, "cancelled");
         
-        // Restore stock
-        const artwork = await storage.getArtwork(order.artworkId);
-        if (artwork) {
-          const updatedSizes: Record<string, { price_cents: number; total_copies: number; remaining: number }> = { ...artwork.sizes };
-          if (updatedSizes[order.size]) {
-            updatedSizes[order.size].remaining += 1;
-            await storage.updateArtwork(artwork.id, { sizes: updatedSizes });
-          }
-        }
+        // Restore stock (atomic operation)
+        await storage.incrementStock(order.artworkId, order.size);
+        
+        // Log analytics event
+        await storage.createAnalyticsEvent({
+          eventType: "order_created",
+          artworkId: order.artworkId,
+          meta: { action: "hold_expired", orderId: order.id } as any
+        });
       }
       
       res.json({ restoredCount: expiredOrders.length });
     } catch (error) {
       console.error("Error restoring holds:", error);
       res.status(500).json({ error: "Failed to restore holds" });
+    }
+  });
+
+  // Get user orders by WhatsApp number
+  app.get("/api/orders/user/:whatsapp", async (req, res) => {
+    try {
+      const orders = await storage.getUserOrders(req.params.whatsapp);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching user orders:", error);
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  // Update order (for payment proof upload)
+  app.patch("/api/orders/:id", async (req, res) => {
+    try {
+      const updateSchema = z.object({
+        paymentMethod: z.enum(["vodafone_cash", "instapay"]).optional(),
+        paymentProof: z.string().optional()
+      });
+      
+      const validatedData = updateSchema.parse(req.body);
+      const order = await storage.updateOrder(req.params.id, validatedData);
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      res.json(order);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error updating order:", error);
+      res.status(500).json({ error: "Failed to update order" });
+    }
+  });
+
+  // Admin: Confirm order
+  app.post("/api/admin/orders/:id/confirm", async (req, res) => {
+    try {
+      // Validate order exists first
+      const existingOrder = await storage.getOrder(req.params.id);
+      if (!existingOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Only allow confirmation if pending
+      if (existingOrder.status !== "pending") {
+        return res.status(400).json({ error: "Order is not in pending status" });
+      }
+      
+      const order = await storage.updateOrderStatus(req.params.id, "confirmed");
+      res.json(order);
+    } catch (error) {
+      console.error("Error confirming order:", error);
+      res.status(500).json({ error: "Failed to confirm order" });
+    }
+  });
+
+  // Admin: Get all orders
+  app.get("/api/admin/orders", async (req, res) => {
+    try {
+      const allArtworks = await storage.getAllArtworks();
+      const allOrders = [];
+      
+      for (const artwork of allArtworks) {
+        const orders = await storage.getOrdersByArtwork(artwork.id);
+        allOrders.push(...orders);
+      }
+      
+      res.json(allOrders.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ));
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      res.status(500).json({ error: "Failed to fetch orders" });
     }
   });
 

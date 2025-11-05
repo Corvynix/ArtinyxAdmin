@@ -20,12 +20,16 @@ export interface IStorage {
   getAvailableArtworks(): Promise<Artwork[]>;
   createArtwork(artwork: InsertArtwork): Promise<Artwork>;
   updateArtwork(id: string, artwork: Partial<InsertArtwork>): Promise<Artwork | undefined>;
+  decrementStock(artworkId: string, size: string, amount: number): Promise<boolean>;
+  incrementStock(artworkId: string, size: string, amount: number): Promise<boolean>;
   
   // Orders
   getOrder(id: string): Promise<Order | undefined>;
   getOrdersByArtwork(artworkId: string): Promise<Order[]>;
+  getUserOrders(whatsapp: string): Promise<Order[]>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: string, status: Order["status"]): Promise<Order | undefined>;
+  updateOrder(id: string, order: Partial<Order>): Promise<Order | undefined>;
   getExpiredHolds(): Promise<Order[]>;
   
   // Bids
@@ -66,7 +70,7 @@ export class DbStorage implements IStorage {
   }
 
   async createArtwork(artwork: InsertArtwork): Promise<Artwork> {
-    const result = await db.insert(artworks).values([artwork]).returning();
+    const result = await db.insert(artworks).values([artwork as any]).returning();
     return result[0];
   }
 
@@ -76,6 +80,38 @@ export class DbStorage implements IStorage {
       .where(eq(artworks.id, id))
       .returning();
     return result[0];
+  }
+
+  async decrementStock(artworkId: string, size: string, amount: number = 1): Promise<boolean> {
+    const artwork = await this.getArtwork(artworkId);
+    if (!artwork) return false;
+
+    const sizes = artwork.sizes as Record<string, { price_cents: number; total_copies: number; remaining: number }>;
+    if (!sizes[size] || sizes[size].remaining < amount) return false;
+
+    sizes[size].remaining -= amount;
+    
+    await db.update(artworks)
+      .set({ sizes: sizes as any })
+      .where(eq(artworks.id, artworkId));
+    
+    return true;
+  }
+
+  async incrementStock(artworkId: string, size: string, amount: number = 1): Promise<boolean> {
+    const artwork = await this.getArtwork(artworkId);
+    if (!artwork) return false;
+
+    const sizes = artwork.sizes as Record<string, { price_cents: number; total_copies: number; remaining: number }>;
+    if (!sizes[size]) return false;
+
+    sizes[size].remaining += amount;
+    
+    await db.update(artworks)
+      .set({ sizes: sizes as any })
+      .where(eq(artworks.id, artworkId));
+    
+    return true;
   }
 
   // Orders
@@ -90,14 +126,28 @@ export class DbStorage implements IStorage {
       .orderBy(desc(orders.createdAt));
   }
 
+  async getUserOrders(whatsapp: string): Promise<Order[]> {
+    return db.select().from(orders)
+      .where(eq(orders.whatsapp, whatsapp))
+      .orderBy(desc(orders.createdAt));
+  }
+
   async createOrder(order: InsertOrder): Promise<Order> {
-    const result = await db.insert(orders).values([order]).returning();
+    const result = await db.insert(orders).values([order as any]).returning();
     return result[0];
   }
 
   async updateOrderStatus(id: string, status: Order["status"]): Promise<Order | undefined> {
     const result = await db.update(orders)
       .set({ status })
+      .where(eq(orders.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateOrder(id: string, order: Partial<Order>): Promise<Order | undefined> {
+    const result = await db.update(orders)
+      .set(order as any)
       .where(eq(orders.id, id))
       .returning();
     return result[0];
@@ -140,7 +190,7 @@ export class DbStorage implements IStorage {
 
   // Analytics
   async createAnalyticsEvent(event: InsertAnalyticsEvent): Promise<AnalyticsEvent> {
-    const result = await db.insert(analyticsEvents).values([event]).returning();
+    const result = await db.insert(analyticsEvents).values([event as any]).returning();
     return result[0];
   }
 

@@ -259,6 +259,14 @@ export default function ArtworkPage() {
                   </button>
                 </div>
               )}
+
+              <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border">
+                <p className="text-sm text-muted-foreground italic" data-testid="text-social-proof">
+                  {language === "en" 
+                    ? "🎨 Recently acquired by collectors in Cairo, Alexandria, and Dubai" 
+                    : "🎨 تم الاستحواذ عليها مؤخرًا من قبل جامعين في القاهرة والإسكندرية ودبي"}
+                </p>
+              </div>
             </div>
           </div>
         </div>
