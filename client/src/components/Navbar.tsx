@@ -30,8 +30,8 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? "bg-background/80 backdrop-blur-md shadow-md" : "bg-background"
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        scrolled ? "glass-black-strong" : "glass-black"
       }`}
       style={{ height: "72px" }}
       data-testid="navbar"
@@ -41,7 +41,7 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
           <img
             src={logoImage}
             alt="Artinyxus"
-            className="h-12 w-auto cursor-pointer hover-elevate rounded-md p-1"
+            className="h-12 w-auto cursor-pointer hover:scale-105 transition-transform duration-300 rounded-md p-1"
             data-testid="img-logo"
           />
         </Link>
@@ -53,7 +53,7 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
               href={index === 0 ? "/" : `/${link.toLowerCase().replace(/\s+/g, "-")}`}
               data-testid={`link-${link.toLowerCase().replace(/\s+/g, "-")}`}
             >
-              <span className="text-foreground hover:text-primary transition-colors cursor-pointer font-medium">
+              <span className="text-white hover:gold-metallic transition-all duration-300 cursor-pointer font-medium tracking-wide">
                 {link}
               </span>
             </Link>
@@ -63,7 +63,7 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
         <div className="flex items-center gap-4">
           <button
             onClick={toggleLanguage}
-            className="text-2xl hover-elevate p-2 rounded-md transition-transform"
+            className="text-2xl hover:scale-110 p-2 rounded-md transition-transform duration-300"
             aria-label="Toggle language"
             data-testid="button-language-toggle"
           >
@@ -75,10 +75,12 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
               const element = document.getElementById("gallery");
               element?.scrollIntoView({ behavior: "smooth" });
             }}
-            className="hidden md:block"
+            className="hidden md:block gold-metallic-button bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-600 hover:from-yellow-500 hover:via-yellow-400 hover:to-yellow-500 text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-yellow-400/50"
             data-testid="button-explore"
           >
-            {currentLang === "en" ? "Explore Artworks" : "استكشف الأعمال"}
+            <span className="relative z-10">
+              {currentLang === "en" ? "Explore Artworks" : "استكشف الأعمال"}
+            </span>
           </Button>
         </div>
       </div>
