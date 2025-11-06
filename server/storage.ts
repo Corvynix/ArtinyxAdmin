@@ -80,6 +80,9 @@ export interface IStorage {
   // Bidding
   updateBidWinnerStatus(bidId: string, isWinner: boolean): Promise<Bid | undefined>;
   markBidNotificationSent(bidId: string): Promise<void>;
+  
+  // Wall of Fame
+  getTopCanvasBuyers(limit?: number): Promise<Array<{ buyerName: string; whatsapp: string; artworkTitle: string; size: string; priceCents: number; createdAt: Date }>>;
 }
 
 export class DbStorage implements IStorage {
@@ -408,6 +411,36 @@ export class DbStorage implements IStorage {
     await db.update(bids)
       .set({ notificationSent: true })
       .where(eq(bids.id, bidId));
+  }
+
+  // Wall of Fame - Get top canvas buyers (largest sizes)
+  async getTopCanvasBuyers(limit: number = 10): Promise<Array<{ buyerName: string; whatsapp: string; artworkTitle: string; size: string; priceCents: number; createdAt: Date }>> {
+    // Limit to max 50 for performance
+    const safeLimit = Math.min(Math.max(1, limit), 50);
+    
+    // Efficient query with SQL LIMIT - only fetch what we need
+    const topOrders = await db.select({
+      buyerName: orders.buyerName,
+      whatsapp: orders.whatsapp,
+      size: orders.size,
+      priceCents: orders.priceCents,
+      createdAt: orders.createdAt,
+      artworkTitle: artworks.title,
+    })
+      .from(orders)
+      .leftJoin(artworks, eq(orders.artworkId, artworks.id))
+      .where(eq(orders.status, "confirmed"))
+      .orderBy(desc(orders.priceCents))
+      .limit(safeLimit);
+
+    return topOrders.map(order => ({
+      buyerName: order.buyerName || "Anonymous Collector",
+      whatsapp: order.whatsapp || "",
+      artworkTitle: order.artworkTitle || "Unknown Artwork",
+      size: order.size,
+      priceCents: order.priceCents,
+      createdAt: order.createdAt
+    }));
   }
 }
 

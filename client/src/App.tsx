@@ -19,6 +19,7 @@ import AdminBids from "@/pages/AdminBids";
 import AdminAnalytics from "@/pages/AdminAnalytics";
 import AdminDashboard from "@/pages/AdminDashboard";
 import CustomerDashboard from "@/pages/CustomerDashboard";
+import WallOfFame from "@/pages/WallOfFame";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/contact" component={Contact} />
       <Route path="/profile" component={Profile} />
       <Route path="/my-orders" component={CustomerDashboard} />
+      <Route path="/wall-of-fame" component={WallOfFame} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/refund-policy" component={RefundPolicy} />
       <Route path="/terms" component={Terms} />

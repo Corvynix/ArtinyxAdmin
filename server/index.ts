@@ -1,8 +1,34 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 
 const app = express();
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable for Vite in development
+  crossOriginEmbedderPolicy: false, // Allow iframe embedding
+}));
+
+// Rate limiting for API endpoints
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window per IP
+  message: "Too many requests from this IP, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const orderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 orders per hour per IP
+  message: "Too many orders, please try again later.",
+});
+
+app.use("/api/", apiLimiter);
+app.use("/api/orders", orderLimiter);
 
 declare module 'http' {
   interface IncomingMessage {

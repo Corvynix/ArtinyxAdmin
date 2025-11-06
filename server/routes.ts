@@ -54,6 +54,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Wall of Fame - Get top canvas buyers
+  app.get("/api/wall-of-fame", async (req, res) => {
+    try {
+      // Validate and cap limit (1-50)
+      let limit = parseInt(req.query.limit as string) || 10;
+      if (isNaN(limit) || limit < 1) limit = 10;
+      if (limit > 50) limit = 50;
+      
+      const topBuyers = await storage.getTopCanvasBuyers(limit);
+      res.json(topBuyers);
+    } catch (error) {
+      console.error("Error fetching Wall of Fame:", error);
+      res.status(500).json({ error: "Failed to fetch Wall of Fame" });
+    }
+  });
+
   // Create order (called when WhatsApp button is clicked)
   app.post("/api/orders", async (req, res) => {
     try {

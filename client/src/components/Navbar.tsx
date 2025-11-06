@@ -28,8 +28,8 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
   };
 
   const navLinks = currentLang === "en"
-    ? ["Home", "Gallery", "Auctions", "About", "Contact"]
-    : ["الرئيسية", "المعرض", "المزادات", "من نحن", "اتصل بنا"];
+    ? ["Home", "Gallery", "Auctions", "Wall of Fame", "About", "Contact"]
+    : ["الرئيسية", "المعرض", "المزادات", "جدار الشرف", "من نحن", "اتصل بنا"];
 
   return (
     <nav
