@@ -17,6 +17,8 @@ import AdminArtworks from "@/pages/AdminArtworks";
 import AdminOrders from "@/pages/AdminOrders";
 import AdminBids from "@/pages/AdminBids";
 import AdminAnalytics from "@/pages/AdminAnalytics";
+import AdminDashboard from "@/pages/AdminDashboard";
+import CustomerDashboard from "@/pages/CustomerDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,10 +30,12 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/contact" component={Contact} />
       <Route path="/profile" component={Profile} />
+      <Route path="/my-orders" component={CustomerDashboard} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/refund-policy" component={RefundPolicy} />
       <Route path="/terms" component={Terms} />
       <Route path="/artworks/:slug" component={ArtworkPage} />
+      <Route path="/admin" component={AdminDashboard} />
       <Route path="/admin/artworks" component={AdminArtworks} />
       <Route path="/admin/orders" component={AdminOrders} />
       <Route path="/admin/bids" component={AdminBids} />

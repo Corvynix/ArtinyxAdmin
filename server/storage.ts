@@ -8,11 +8,15 @@ import {
   type AnalyticsEvent,
   type InsertAnalyticsEvent,
   type User,
-  type UpsertUser
+  type UpsertUser,
+  type Notification,
+  type InsertNotification,
+  type InventoryAlert,
+  type InsertInventoryAlert
 } from "@shared/schema";
 import { db } from "../db/index";
-import { artworks, orders, bids, analyticsEvents, adminSettings, users } from "@shared/schema";
-import { eq, desc, and, lte } from "drizzle-orm";
+import { artworks, orders, bids, analyticsEvents, adminSettings, users, notifications, inventoryAlerts } from "@shared/schema";
+import { eq, desc, and, lte, gte, sql as drizzleSql } from "drizzle-orm";
 
 export interface IStorage {
   // Users (Replit Auth integration)
@@ -51,6 +55,31 @@ export interface IStorage {
   // Admin Settings
   getSetting(key: string): Promise<any>;
   setSetting(key: string, value: any): Promise<void>;
+  
+  // Notifications
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getNotification(id: string): Promise<Notification | undefined>;
+  getPendingNotifications(type?: Notification["type"]): Promise<Notification[]>;
+  updateNotificationStatus(id: string, status: Notification["status"], errorMessage?: string): Promise<Notification | undefined>;
+  
+  // Inventory Alerts
+  createInventoryAlert(alert: InsertInventoryAlert): Promise<InventoryAlert>;
+  getUnsentInventoryAlerts(): Promise<InventoryAlert[]>;
+  markInventoryAlertSent(id: string): Promise<void>;
+  
+  // Analytics & Reporting
+  getOrdersInRange(startDate: Date, endDate: Date): Promise<Order[]>;
+  getAllOrders(): Promise<Order[]>;
+  getRevenueByPeriod(startDate: Date, endDate: Date): Promise<number>;
+  getBestSellingArtworks(limit?: number): Promise<Array<{ artworkId: string; title: string; totalSales: number; revenue: number }>>;
+  
+  // Filtering
+  getArtworksByCategory(category: string): Promise<Artwork[]>;
+  getArtworksByPriceRange(minPrice: number, maxPrice: number): Promise<Artwork[]>;
+  
+  // Bidding
+  updateBidWinnerStatus(bidId: string, isWinner: boolean): Promise<Bid | undefined>;
+  markBidNotificationSent(bidId: string): Promise<void>;
 }
 
 export class DbStorage implements IStorage {
@@ -241,6 +270,144 @@ export class DbStorage implements IStorage {
         target: adminSettings.key,
         set: { value, updatedAt: new Date() }
       });
+  }
+
+  // Notifications
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const result = await db.insert(notifications).values([notification as any]).returning();
+    return result[0];
+  }
+
+  async getNotification(id: string): Promise<Notification | undefined> {
+    const result = await db.select().from(notifications).where(eq(notifications.id, id));
+    return result[0];
+  }
+
+  async getPendingNotifications(type?: Notification["type"]): Promise<Notification[]> {
+    if (type) {
+      return db.select().from(notifications)
+        .where(and(eq(notifications.status, "pending"), eq(notifications.type, type)))
+        .orderBy(desc(notifications.createdAt));
+    }
+    return db.select().from(notifications)
+      .where(eq(notifications.status, "pending"))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async updateNotificationStatus(id: string, status: Notification["status"], errorMessage?: string): Promise<Notification | undefined> {
+    const updateData: any = { status };
+    if (status === "sent") {
+      updateData.sentAt = new Date();
+    }
+    if (errorMessage) {
+      updateData.errorMessage = errorMessage;
+    }
+    const result = await db.update(notifications)
+      .set(updateData)
+      .where(eq(notifications.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Inventory Alerts
+  async createInventoryAlert(alert: InsertInventoryAlert): Promise<InventoryAlert> {
+    const result = await db.insert(inventoryAlerts).values([alert as any]).returning();
+    return result[0];
+  }
+
+  async getUnsentInventoryAlerts(): Promise<InventoryAlert[]> {
+    return db.select().from(inventoryAlerts)
+      .where(eq(inventoryAlerts.alertSent, false))
+      .orderBy(desc(inventoryAlerts.createdAt));
+  }
+
+  async markInventoryAlertSent(id: string): Promise<void> {
+    await db.update(inventoryAlerts)
+      .set({ alertSent: true })
+      .where(eq(inventoryAlerts.id, id));
+  }
+
+  // Analytics & Reporting
+  async getAllOrders(): Promise<Order[]> {
+    return db.select().from(orders).orderBy(desc(orders.createdAt));
+  }
+
+  async getOrdersInRange(startDate: Date, endDate: Date): Promise<Order[]> {
+    return db.select().from(orders)
+      .where(and(
+        gte(orders.createdAt, startDate),
+        lte(orders.createdAt, endDate)
+      ))
+      .orderBy(desc(orders.createdAt));
+  }
+
+  async getRevenueByPeriod(startDate: Date, endDate: Date): Promise<number> {
+    const ordersInRange = await this.getOrdersInRange(startDate, endDate);
+    return ordersInRange
+      .filter(o => o.status === "confirmed" || o.status === "shipped")
+      .reduce((sum, order) => sum + (order.priceCents || 0), 0);
+  }
+
+  async getBestSellingArtworks(limit: number = 10): Promise<Array<{ artworkId: string; title: string; totalSales: number; revenue: number }>> {
+    const allOrders = await this.getAllOrders();
+    const confirmedOrders = allOrders.filter(o => o.status === "confirmed" || o.status === "shipped");
+    
+    const salesByArtwork = new Map<string, { count: number; revenue: number }>();
+    
+    for (const order of confirmedOrders) {
+      const existing = salesByArtwork.get(order.artworkId) || { count: 0, revenue: 0 };
+      salesByArtwork.set(order.artworkId, {
+        count: existing.count + 1,
+        revenue: existing.revenue + (order.priceCents || 0)
+      });
+    }
+
+    const artworkStats = await Promise.all(
+      Array.from(salesByArtwork.entries()).map(async ([artworkId, stats]) => {
+        const artwork = await this.getArtwork(artworkId);
+        return {
+          artworkId,
+          title: artwork?.title || "Unknown",
+          totalSales: stats.count,
+          revenue: stats.revenue
+        };
+      })
+    );
+
+    return artworkStats.sort((a, b) => b.totalSales - a.totalSales).slice(0, limit);
+  }
+
+  // Filtering
+  async getArtworksByCategory(category: string): Promise<Artwork[]> {
+    return db.select().from(artworks)
+      .where(eq(artworks.category, category as any))
+      .orderBy(desc(artworks.createdAt));
+  }
+
+  async getArtworksByPriceRange(minPrice: number, maxPrice: number): Promise<Artwork[]> {
+    const allArtworks = await this.getAllArtworks();
+    return allArtworks.filter(artwork => {
+      const sizes = artwork.sizes as Record<string, { price_cents: number; total_copies: number; remaining: number }>;
+      const prices = Object.values(sizes).map(s => s.price_cents);
+      const minArtworkPrice = Math.min(...prices);
+      const maxArtworkPrice = Math.max(...prices);
+      return minArtworkPrice >= minPrice && maxArtworkPrice <= maxPrice;
+    });
+  }
+
+  // Bidding
+  async updateBidWinnerStatus(bidId: string, isWinner: boolean): Promise<Bid | undefined> {
+    const result = await db.update(bids)
+      .set({ isWinner })
+      .where(eq(bids.id, bidId))
+      .returning();
+    return result[0];
+  }
+
+  async markBidNotificationSent(bidId: string): Promise<void> {
+    await db.update(bids)
+      .set({ notificationSent: true })
+      .where(eq(bids.id, bidId));
   }
 }
 

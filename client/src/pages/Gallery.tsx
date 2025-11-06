@@ -4,19 +4,36 @@ import Navbar from "@/components/Navbar";
 import ArtworkGallery from "@/components/ArtworkGallery";
 import { artworksAPI } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Filter } from "lucide-react";
 
 export default function Gallery() {
   const [language, setLanguage] = useState<"en" | "ar">("en");
-  const [filter, setFilter] = useState<"all" | "unique" | "limited" | "auction">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "unique" | "limited" | "auction">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data: allArtworks = [], isLoading } = useQuery({
     queryKey: ["/api/artworks"],
     queryFn: artworksAPI.getAll
   });
 
+  const categories = Array.from(new Set(allArtworks.map(a => (a as any).category).filter(Boolean)));
+
   const filteredArtworks = allArtworks
     .filter(a => a.status === "available")
-    .filter(a => filter === "all" || a.type === filter)
+    .filter(a => typeFilter === "all" || a.type === typeFilter)
+    .filter(a => {
+      if (categoryFilter === "all") return true;
+      return (a as any).category === categoryFilter;
+    })
+    .filter(a => {
+      const prices = Object.values(a.sizes).map(s => s.price_cents);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      return minPrice >= priceRange[0] * 100 && maxPrice <= priceRange[1] * 100;
+    })
     .map(a => ({
       id: a.id,
       title: a.title,
@@ -49,33 +66,85 @@ export default function Gallery() {
       
       <div className="pt-24 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-12">
+          <div className="flex flex-col md:flex-row justify-between items-start mb-12">
             <h1 className="font-serif text-4xl md:text-5xl font-bold mb-4 md:mb-0">
               {language === "en" ? "Art Gallery" : "معرض الفنون"}
             </h1>
             
-            <div className="w-full md:w-64">
-              <Select value={filter} onValueChange={(value: any) => setFilter(value)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    {language === "en" ? "All Artworks" : "جميع الأعمال"}
-                  </SelectItem>
-                  <SelectItem value="unique">
-                    {language === "en" ? "Unique" : "فريدة"}
-                  </SelectItem>
-                  <SelectItem value="limited">
-                    {language === "en" ? "Limited Edition" : "طبعة محدودة"}
-                  </SelectItem>
-                  <SelectItem value="auction">
-                    {language === "en" ? "Auctions" : "مزادات"}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-accent"
+              data-testid="button-toggle-filters"
+            >
+              <Filter className="w-4 h-4" />
+              {language === "en" ? "Filters" : "الفلاتر"}
+            </button>
           </div>
+
+          {showFilters && (
+            <div className="bg-card border border-border rounded-lg p-6 mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {language === "en" ? "Type" : "النوع"}
+                </label>
+                <Select value={typeFilter} onValueChange={(value: any) => setTypeFilter(value)}>
+                  <SelectTrigger data-testid="select-type-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      {language === "en" ? "All Types" : "جميع الأنواع"}
+                    </SelectItem>
+                    <SelectItem value="unique">
+                      {language === "en" ? "Unique" : "فريدة"}
+                    </SelectItem>
+                    <SelectItem value="limited">
+                      {language === "en" ? "Limited Edition" : "طبعة محدودة"}
+                    </SelectItem>
+                    <SelectItem value="auction">
+                      {language === "en" ? "Auctions" : "مزادات"}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {language === "en" ? "Category" : "الفئة"}
+                </label>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger data-testid="select-category-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      {language === "en" ? "All Categories" : "جميع الفئات"}
+                    </SelectItem>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat || ""}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  {language === "en" ? `Price Range: ${priceRange[0]} - ${priceRange[1]} EGP` : `نطاق السعر: ${priceRange[0]} - ${priceRange[1]} ج.م`}
+                </label>
+                <Slider
+                  min={0}
+                  max={100000}
+                  step={1000}
+                  value={priceRange}
+                  onValueChange={(value) => setPriceRange(value as [number, number])}
+                  className="mt-4"
+                  data-testid="slider-price-range"
+                />
+              </div>
+            </div>
+          )}
 
           {filteredArtworks.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

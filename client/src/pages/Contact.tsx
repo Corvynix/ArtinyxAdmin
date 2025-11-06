@@ -74,10 +74,10 @@ export default function Contact() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8 mb-16">
-            <div className="p-8 bg-card border border-card-border rounded-lg hover:border-primary/50 transition-colors">
+            <div className="p-8 bg-card border border-card-border rounded-lg hover:border-[#25D366]/50 transition-colors">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <MessageCircle className="w-8 h-8 text-primary" />
+                <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(37, 211, 102, 0.1)' }}>
+                  <MessageCircle className="w-8 h-8" style={{ color: '#25D366' }} />
                 </div>
                 <h2 className="font-serif text-2xl font-bold">
                   {content.whatsapp.title}
@@ -88,17 +88,18 @@ export default function Contact() {
               </p>
               <Button
                 onClick={handleWhatsApp}
-                className="w-full"
+                className="w-full text-white hover:opacity-90"
+                style={{ backgroundColor: '#25D366' }}
               >
                 <MessageCircle className="w-5 h-5 mr-2" />
                 {content.whatsapp.button}
               </Button>
             </div>
 
-            <div className="p-8 bg-card border border-card-border rounded-lg hover:border-primary/50 transition-colors">
+            <div className="p-8 bg-card border border-card-border rounded-lg hover:border-[#E1306C]/50 transition-colors">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 rounded-lg bg-primary/10">
-                  <Instagram className="w-8 h-8 text-primary" />
+                <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(225, 48, 108, 0.1)' }}>
+                  <Instagram className="w-8 h-8" style={{ color: '#E1306C' }} />
                 </div>
                 <h2 className="font-serif text-2xl font-bold">
                   {content.instagram.title}
@@ -109,7 +110,10 @@ export default function Contact() {
               </p>
               <Button
                 onClick={handleInstagram}
-                className="w-full"
+                className="w-full text-white hover:opacity-90"
+                style={{ 
+                  background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)'
+                }}
               >
                 <Instagram className="w-5 h-5 mr-2" />
                 {content.instagram.button}

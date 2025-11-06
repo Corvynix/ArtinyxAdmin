@@ -66,7 +66,7 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
         <div className="flex items-center gap-4">
           <button
             onClick={toggleLanguage}
-            className="text-2xl hover:scale-110 p-2 rounded-md transition-transform duration-300"
+            className="text-2xl hover:scale-110 p-2 rounded-md transition-transform duration-300 text-white"
             aria-label="Toggle language"
             data-testid="button-language-toggle"
           >
@@ -77,7 +77,7 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
             <>
               {isAdmin && (
                 <Link href="/admin/artworks">
-                  <Button variant="outline" size="sm" data-testid="button-admin">
+                  <Button variant="outline" size="sm" className="border-white text-white hover:bg-white hover:text-black" data-testid="button-admin">
                     <Settings className="w-4 h-4 mr-2" />
                     Admin
                   </Button>
@@ -87,6 +87,7 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
                 variant="outline"
                 size="sm"
                 onClick={() => window.location.href = "/api/logout"}
+                className="border-white text-white hover:bg-white hover:text-black"
                 data-testid="button-logout"
               >
                 <LogOut className="w-4 h-4 mr-2" />
@@ -98,6 +99,7 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
               variant="outline"
               size="sm"
               onClick={() => window.location.href = "/api/login"}
+              className="border-white text-white hover:bg-white hover:text-black"
               data-testid="button-login"
             >
               <User className="w-4 h-4 mr-2" />

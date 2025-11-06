@@ -38,10 +38,13 @@ export const artworks = pgTable("artworks", {
   sizes: jsonb("sizes").$type<Record<string, { price_cents: number; total_copies: number; remaining: number }>>().notNull(),
   type: text("type").notNull().$type<"unique" | "limited" | "auction">(),
   status: text("status").notNull().default("available").$type<"available" | "coming_soon" | "sold" | "auction_closed">(),
+  category: text("category").$type<"abstract" | "portrait" | "landscape" | "modern" | "calligraphy" | "mixed_media">(),
+  style: text("style"),
   auctionStart: timestamp("auction_start"),
   auctionEnd: timestamp("auction_end"),
   currentBidCents: bigint("current_bid_cents", { mode: "number" }),
   minIncrementCents: bigint("min_increment_cents", { mode: "number" }).default(50000), // 500 EGP default
+  lowStockThreshold: integer("low_stock_threshold").default(2),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -51,12 +54,15 @@ export const orders = pgTable("orders", {
   artworkId: varchar("artwork_id").notNull().references(() => artworks.id),
   buyerName: text("buyer_name"),
   whatsapp: text("whatsapp"),
+  email: text("email"),
   size: text("size").notNull(),
   priceCents: bigint("price_cents", { mode: "number" }).notNull(),
   paymentMethod: text("payment_method").$type<"vodafone_cash" | "instapay">(),
-  paymentProof: text("payment_proof"), // storage path
+  paymentProof: text("payment_proof"),
+  invoiceNumber: text("invoice_number").unique(),
   status: text("status").notNull().default("pending").$type<"pending" | "confirmed" | "cancelled" | "refunded" | "shipped">(),
   holdExpiresAt: timestamp("hold_expires_at"),
+  shippedAt: timestamp("shipped_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -66,7 +72,10 @@ export const bids = pgTable("bids", {
   artworkId: varchar("artwork_id").notNull().references(() => artworks.id),
   bidderName: text("bidder_name"),
   whatsapp: text("whatsapp"),
+  email: text("email"),
   amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+  isWinner: boolean("is_winner").default(false),
+  notificationSent: boolean("notification_sent").default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -107,11 +116,39 @@ export const adminAudit = pgTable("admin_audit", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull().$type<"email" | "sms" | "whatsapp">(),
+  recipient: text("recipient").notNull(),
+  subject: text("subject"),
+  message: text("message").notNull(),
+  status: text("status").notNull().default("pending").$type<"pending" | "sent" | "failed">(),
+  relatedOrderId: varchar("related_order_id").references(() => orders.id),
+  relatedBidId: varchar("related_bid_id").references(() => bids.id),
+  errorMessage: text("error_message"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Inventory alerts table
+export const inventoryAlerts = pgTable("inventory_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  artworkId: varchar("artwork_id").notNull().references(() => artworks.id),
+  size: text("size").notNull(),
+  remainingStock: integer("remaining_stock").notNull(),
+  threshold: integer("threshold").notNull(),
+  alertSent: boolean("alert_sent").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertArtworkSchema = createInsertSchema(artworks).omit({ id: true, createdAt: true });
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
 export const insertBidSchema = createInsertSchema(bids).omit({ id: true, createdAt: true });
 export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({ id: true, createdAt: true });
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true, sentAt: true });
+export const insertInventoryAlertSchema = createInsertSchema(inventoryAlerts).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -125,3 +162,7 @@ export type Bid = typeof bids.$inferSelect;
 export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type AdminSettings = typeof adminSettings.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertInventoryAlert = z.infer<typeof insertInventoryAlertSchema>;
+export type InventoryAlert = typeof inventoryAlerts.$inferSelect;
