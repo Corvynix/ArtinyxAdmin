@@ -1,6 +1,8 @@
 import { Link } from "wouter";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { User, LogOut, Settings } from "lucide-react";
 import logoImage from "@assets/Logo_1762382111378.png";
 
 interface NavbarProps {
@@ -10,6 +12,7 @@ interface NavbarProps {
 
 export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
+  const { isAuthenticated, isAdmin, user } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -69,6 +72,38 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
           >
             {currentLang === "en" ? "🇪🇬" : "🇺🇸"}
           </button>
+          
+          {isAuthenticated ? (
+            <>
+              {isAdmin && (
+                <Link href="/admin/artworks">
+                  <Button variant="outline" size="sm" data-testid="button-admin">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Admin
+                  </Button>
+                </Link>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = "/api/logout"}
+                data-testid="button-logout"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.href = "/api/login"}
+              data-testid="button-login"
+            >
+              <User className="w-4 h-4 mr-2" />
+              Login
+            </Button>
+          )}
           
           <Button
             onClick={() => {

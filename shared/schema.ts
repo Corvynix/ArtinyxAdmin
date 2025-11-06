@@ -1,7 +1,30 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, jsonb, bigint, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, jsonb, bigint, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Session storage table (Replit Auth integration)
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table (Replit Auth integration)
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
 
 // Artworks table
 export const artworks = pgTable("artworks", {
@@ -91,6 +114,8 @@ export const insertBidSchema = createInsertSchema(bids).omit({ id: true, created
 export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({ id: true, createdAt: true });
 
 // Types
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
 export type InsertArtwork = z.infer<typeof insertArtworkSchema>;
 export type Artwork = typeof artworks.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;

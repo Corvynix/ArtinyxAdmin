@@ -13,6 +13,10 @@ import Profile from "@/pages/Profile";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import RefundPolicy from "@/pages/RefundPolicy";
 import Terms from "@/pages/Terms";
+import AdminArtworks from "@/pages/AdminArtworks";
+import AdminOrders from "@/pages/AdminOrders";
+import AdminBids from "@/pages/AdminBids";
+import AdminAnalytics from "@/pages/AdminAnalytics";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -28,6 +32,10 @@ function Router() {
       <Route path="/refund-policy" component={RefundPolicy} />
       <Route path="/terms" component={Terms} />
       <Route path="/artworks/:slug" component={ArtworkPage} />
+      <Route path="/admin/artworks" component={AdminArtworks} />
+      <Route path="/admin/orders" component={AdminOrders} />
+      <Route path="/admin/bids" component={AdminBids} />
+      <Route path="/admin/analytics" component={AdminAnalytics} />
       <Route component={NotFound} />
     </Switch>
   );

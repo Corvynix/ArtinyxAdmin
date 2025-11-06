@@ -1,0 +1,518 @@
+موقع فاخر لبيع لوحات يدوية أصلية (single-artist) مصمم لبيع يومي بواسطة ندرة عاطفية، دفع كامل عبر Vodafone Cash أو InstaPay، ومُدار بالكامل عبر Supabase + Netlify بدون تكاليف سنوية.
+
+1 — بنية الملفات (مطلوبة في الريبو)
+/app                          # Next.js app router
+  /artworks
+    /[slug]/page.tsx
+  /admin                       # (optional client admin views - minimal, but admin main via Supabase)
+  /components                  # جميع العناصر القابلة لإعادة الاستخدام
+  /styles
+  /lib                         # helpers (supabase client, pricing formula, validators)
+  /i18n
+    en.json
+    ar.json
+/public
+  /assets
+    Logo.png
+    favicon-*.png
+/netlify
+  functions                     # serverless functions (create-order, place-bid, confirm-order, auction-close, verify-payment)
+supabase
+  schema.sql
+  seed.sql
+scripts
+  migrate.sh
+  seed.sh
+  restore_holds.sh
+tests
+  unit
+  e2e (playwright)
+README.md
+ADMIN_GUIDE.md
+launch-checklist.md
+.env.example
+.gitignore
+
+2 — واجهات المستخدم (صفحات وخصائص مطلوبة)
+
+لكل صفحة أذكر الخصائص الدقيقة:
+
+2.1 Navbar (Global)
+
+ارتفاع ثابت 72px.
+
+يسار: Logo.png (ممكن ريتنايت لـ favicon) — يضغط للصفحة الرئيسية.
+
+يمين: روابط: Home | Gallery | Auctions | About | Contact + 🇪🇬/🇺🇸 language toggle.
+
+زر CTA دائم: Explore Artworks (smooth scroll).
+
+ثابت أعلى الصفحة (sticky) مع backdrop-filter blur عند التمرير.
+
+Accessible: aria-labels، keyboard focus.
+
+2.2 Home (Hero + Available Now + Coming Soon)
+
+Hero: full-viewport (100vh), خلفية مظللة بالصورة، نص مركزي بالعربي والإنجليزي.
+
+CTA: Explore Artworks → smooth scroll.
+
+Available Now: grid 2 (mobile) / 3 (desktop) ، gap 24px، بطاقات بنسبة 1:1، hover scale(1.03).
+
+Coming Soon: thumbnails ضبابية مع overlay “Coming Soon”.
+
+Footer: بسيط، ارتفاع 120px، روابط تواصل، حقوق الملكية، سياسة الخصوصية، refund policy.
+
+2.3 Artwork Detail (/artworks/[slug])
+
+تصميم عمودين: image (60%) + details (40%).
+
+عناصر:
+
+Title (Playfair Display, 32px)
+
+Poetic short description (18px)
+
+Image carousel (lazy-load، blur placeholder).
+
+Sizes dropdown (S/M/L أو القيم من JSON) — يغير السعر فورًا.
+
+السعر مع عرض السعر المرجعي (crossed-out reference value).
+
+Scarcity badge: يظهر بعد 3s (fade-in 300ms) بصيغة “X of Y left” أو “Sold Out”.
+
+Status badges: Unique, Limited Edition, Auction Live, Coming Soon, Sold Out — تصميم واضح (Gold border, red for sold).
+
+Buy CTA: طلب عبر واتساب (زر ذهبي #C8A951) + أيقونة واتساب.
+
+عند الضغط: أولاً تنشئ سجل order (status=pending, hold_expires = now()+24h) عبر Netlify function، ثانيًا تفتح wa.me مع رسالة préfilled بالعربي:
+
+مرحباً، أود طلب لوحة [اسم اللوحة] (المقاس: [المقاس]) — [السعر] EGP. من فضلك أكد التوفر.
+
+
+ضامن أعلاه: “💰 ضمان استرجاع 100% — تجربة 7 أيام بلا أسئلة” بجانب CTA.
+
+ملاحظة: “Price does not include shipping costs.”
+
+Story section: فقرة شعرية (≥100 كلمة عند الإمكان) قابلة للطي (collapsed preview).
+
+Reviews & social proof: ticker “Recently acquired by [city] collector” — seed data.
+
+2.4 Auctions Page
+
+يعرض الأعمال التي type='auction'.
+
+لكل عمل: current highest bid, #bids, countdown timer (server-synced), place bid input.
+
+Anti-sniping: إذا وصلت مزايدة خلال آخر 60 ثانية → تمديد تلقائي +120 ثانية (server-side).
+
+منتهٍ: يظهر “Auction Closed / Sold” ويُنشىء أمر فائز تلقائيًا (order record with status=pending/confirmed per admin verification rule).
+
+2.5 About, Contact, Policy Pages
+
+About: قصة الفنان والعلامة بأسلوب فاخر.
+
+Contact: أيقونة واتساب دائمة، انستجرام فقط — لا نماذج طويلة.
+
+Policies: refund policy، privacy policy، terms.
+
+2.6 User Profile (اختياري لكن مرغوب)
+
+عرض orders history، تحميل أو مشاهدة حالة الدفعات، رفع إثبات الدفع للصورة، status updates.
+
+3 — المكونات (Components) الأساسية
+
+ArtworkCard (grid card)
+
+ArtworkPage (page view)
+
+WhatsAppButton (يستدعي create-order function ثم يفتح wa.me)
+
+ScarcityBadge
+
+AuctionCountdown (يشمل anti-sniping logic listener)
+
+PriceDisplay (show reference, discounted, localized currency)
+
+I18nProvider (dir handling, switcher)
+
+AnalyticsHook (log events to supabase analytics_events)
+
+ImageGallery (lazy + blur + responsive srcset)
+
+GuaranteeBox
+
+AdminAuditLogger (client for logging admin actions to admin_audit via functions)
+
+ErrorBoundary
+
+4 — قواعد البيانات (Supabase) — جداول وحقول
+
+(الأساس هو schema.sql الذي سلّمته، مع توضيح الحقول)
+
+4.1 artworks
+
+id UUID PK
+
+slug TEXT UNIQUE
+
+title TEXT
+
+short_description TEXT
+
+story TEXT
+
+images JSONB (array URLs)
+
+sizes JSONB { "S": { price_cents, total_copies, remaining }, "M": {...}, "L": {...} }
+
+type ENUM / CHECK ('unique','limited','auction')
+
+status TEXT ('available','coming_soon','sold','auction_closed')
+
+auction_start TIMESTAMPTZ
+
+auction_end TIMESTAMPTZ
+
+current_bid_cents BIGINT
+
+min_increment_cents BIGINT
+
+created_at
+
+4.2 orders
+
+id UUID
+
+artwork_id UUID REFERENCES artworks(id)
+
+buyer_name TEXT
+
+whatsapp TEXT
+
+size TEXT
+
+price_cents BIGINT
+
+payment_method TEXT ('vodafone_cash','instapay')
+
+payment_proof TEXT (storage path)
+
+status TEXT ('pending','confirmed','cancelled','refunded','shipped')
+
+hold_expires_at TIMESTAMPTZ
+
+created_at
+
+4.3 bids
+
+id UUID
+
+artwork_id UUID
+
+bidder_name TEXT
+
+whatsapp TEXT
+
+amount_cents BIGINT
+
+created_at
+
+4.4 analytics_events
+
+event_type TEXT (page_view, whatsapp_click, order_created, bid_placed, hover_story)
+
+artwork_id
+
+meta JSONB
+
+created_at
+
+4.5 rate_limit_violations, admin_audit, collectors (optional) etc.
+5 — وظائف السيرفر (Netlify Functions) & Endpoints
+
+Server-side only, تستخدم Supabase service role key.
+
+5.1 create-order
+
+مدخلات: artwork_id, size, buyer_name (optional), whatsapp (optional), price_cents, payment_method
+
+الإجراءات:
+
+Validate input, check remaining >0.
+
+Insert order(status=pending), set hold_expires = now()+24h.
+
+Call fn_hold_stock (or do atomic update) to decrement sizes[<size>].remaining.
+
+Insert analytics_event(order_created).
+
+Return wa.me URL لتفتح العميل.
+
+Rate-limit per IP & per artwork (e.g., 5 req/min), log violations.
+
+5.2 place-bid
+
+Validate auction live, amount > current_bid + min_increment.
+
+Insert bid row.
+
+Update artworks.current_bid_cents atomically (use DB transaction).
+
+If bid within last 60s, extend auction_end by +120s (write into artwork).
+
+Insert analytics_event(bid_placed).
+
+Rate-limit (e.g., 3 bids per minute per user/IP).
+
+5.3 confirm-order (admin)
+
+Verify admin via JWT and FIRST_ADMIN_EMAIL.
+
+Set order.status = confirmed, add admin_audit row.
+
+5.4 auction-close (manual/scheduled)
+
+Close auctions whose auction_end < now; compute winner (max bid), create winning order with buyer info (pending/confirmed), log audit.
+
+5.5 restore-holds
+
+Scan pending orders with hold_expires_at < now → restore stock (increment sizes[<size>].remaining), set order.status='cancelled', analytics_event.
+
+6 — منطق الأعمال (Business Logic / Rules)
+
+Order creation on WhatsApp click: creates pending order and decrements stock immediately (hold 24h).
+
+Hold expiry: after 24h restore stock automatically.
+
+Auction length: default 73 hours from auction_start; anti-sniping: if bid within last 60s → extend 120s.
+
+Payment: only Vodafone Cash or InstaPay — full amount required pre-start. User uploads proof (screenshot + reference number).
+
+Admin confirmation: Admin verifies proof in Supabase UI or via confirm-order serverless function; then order.status='confirmed'.
+
+Certificates: For items ≥ EGP 4,800 generate COA (record in orders metadata).
+
+Price rounding: round to nearest 50 EGP.
+
+7 — الأمان (Security)
+
+Never expose SUPABASE_SERVICE_ROLE_KEY to client — only in Netlify env.
+
+CSP headers in Netlify (no inline scripts).
+
+RLS: enable on production:
+
+artworks: public select only for available status.
+
+orders: insert allowed (or via functions); select by owner/admin.
+
+admin policies: only email == FIRST_ADMIN_EMAIL allowed to update/admin.
+
+Rate limiting serverless functions; log into rate_limit_violations.
+
+Sanitize rich text inputs via DOMPurify or server sanitization.
+
+Validate file uploads (size, mime) and store in Supabase Storage private/public as per use-case.
+
+8 — i18n & RTL
+
+Strings in i18n/ar.json and i18n/en.json.
+
+I18nProvider sets <html dir="rtl"> when Arabic active.
+
+Remember language preference in cookie/localStorage.
+
+All UI elements must have translated copy (including validation, alerts, admin messages).
+
+Arabic must be polished poetic variants (hooks provided earlier).
+
+9 — تجربة المستخدم (UX) & التصميم الدقيق (Pixel & Motion)
+
+Palette: Black #0E0E0E / Gold #C8A951 / Beige #F8F5F2.
+
+Fonts: Playfair Display (Headings), Inter / Cairo (body).
+
+Spacing scale: 8px grid.
+
+Buttons rounded-2xl (border-radius 16px).
+
+Hero font-size: H1 48px desktop, 28px mobile.
+
+Image card ratio 1:1, drop-shadow soft, hover scale 1.03 duration 250ms.
+
+Scarcity reveal: delay 3000ms fade-in 300ms.
+
+Animations via Framer Motion; no heavy Lottie or blocking animations.
+
+Accessibility: all interactive elements keyboard-focusable, aria-labels, color contrast WCAG AA.
+
+10 — الأداء وSEO
+
+Use next/image or responsive srcset and WebP where possible.
+
+Lazy-load offscreen images, preconnect to Supabase storage.
+
+SSR essential pages (home, artwork detail) for SEO and OG tags.
+
+sitemap.xml & robots.txt generated on build.
+
+JSON-LD Product schema on artwork pages (title, image, description, price).
+
+Lighthouse targets: Performance >=85, Accessibility >=90, Best Practices >=90, SEO >=90. If not met, produce remediation list.
+
+11 — الاختبارات (Testing)
+
+Unit tests (Vitest/Jest) for:
+
+pricing formula (input sizes -> expected price range)
+
+stock hold/restore logic
+
+bid validation (min increment, anti-sniping)
+
+E2E (Playwright):
+
+Artwork page: select size -> price updates
+
+Click WhatsApp -> creates order row (DB assertion) and returns wa.me
+
+Auction bid flow: place bid -> current_bid updated
+
+Load tests (k6 or simple script) to simulate bids (rate-limit must trigger).
+
+Linting/TypeScript checks: tsc --noEmit, ESLint, Prettier.
+
+12 — CI / CD وملف النشر
+
+netlify.toml build command npm run build, functions dir .netlify/functions.
+
+GitHub Actions optional:
+
+run lint + tests + build + Lighthouse CI.
+
+Deployment steps:
+
+Create Supabase project, import schema.sql, run seed.sql.
+
+Push repo to GitHub → connect to Netlify.
+
+Set env vars in Netlify (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, FIRST_ADMIN_EMAIL, VODAFONE_CASH_NUMBER, INSTAPAY_ACCOUNT, APP_URL).
+
+Deploy.
+
+13 — مراقبة ونسخ احتياطي (Monitoring & Backups)
+
+Use Supabase automatic backups (enable in project).
+
+Admin audit table admin_audit logs manual actions.
+
+Error logs from Netlify functions captured (console + Sentry optional — but Sentry is paid; for zero-cost, log into a database table).
+
+Health endpoint for uptime checks.
+
+14 — مستندات وملفات لازمة للتسليم
+
+README.md (setup, run, deploy, env)
+
+ADMIN_GUIDE.md (how to confirm orders, add artworks, check bids)
+
+launch-checklist.md (QA steps)
+
+final-audit-report.md (after QA)
+
+.env.example with descriptions
+
+15 — سكربتات مفيدة (Commands / Scripts)
+
+npm run dev → next dev
+
+npx netlify dev → run functions + site locally
+
+npm run build → build
+
+npm run test → run unit + e2e
+
+scripts/migrate.sh → apply schema.sql to Supabase
+
+scripts/seed.sh → run seed.sql
+
+scripts/restore_holds.sh → call fn_restore_expired_holds (cron or manually)
+
+16 — معايير القبول النهائية (Acceptance Criteria — GO/NO-GO)
+
+لكي نعلن GO يجب أن تكون كل الشروط التالية صحيحة:
+
+Build & Serve:
+
+npm install && npm run build ينجح بدون أخطاء.
+
+npx netlify dev يخدم الموقع محليًا.
+
+Workflow Tests:
+
+إنشاء أمر (WhatsApp click) ينتج سجل order (status=pending) وhold_expires_at = now()+24h.
+
+رفع إثبات الدفع والـ admin يقدر يؤكد الطلب (status=confirmed).
+
+مزايدة تعمل: place-bid يضيف bid row ويحدّث artworks.current_bid_cents.
+
+عند انتهاء المزاد، auction-close ينتج order للفائز ويغيّر حالة العمل.
+
+Security:
+
+لا مفاتيح سرية في الكلاينت.
+
+CSP headers موجودة.
+
+Rate-limits تعمل وتخزن مخالفات.
+
+RLS مفعلة على الإنتاج.
+
+UX:
+
+Scarcity يظهر بعد 3s.
+
+Arabic RTL يعمل بشكل كامل.
+
+Buttons & interactions accessibles (tab, aria).
+
+Performance & SEO:
+
+Lighthouse >= thresholds أو خطة إصلاح واضحة.
+
+Tests:
+
+Unit + E2E pass.
+
+Docs & Admin:
+
+README, ADMIN_GUIDE, launch-checklist موجودين ومفهومين.
+
+17 — قائمة تحقق نهائية سريعة (Checklist مختصر للطباعة)
+
+ Logo in /public/Logo.png + favicon
+
+ Supabase schema imported
+
+ Seed data present (5 initial artworks)
+
+ Netlify functions: create-order, place-bid, confirm-order, auction-close, restore-holds
+
+ WhatsApp click creates pending order and opens wa.me
+
+ Payment proof upload & admin confirm flow
+
+ Auction anti-sniping: last 60s → +120s
+
+ Scarcity reveal 3s
+
+ i18n: ar/en files complete, dir switch working
+
+ CSP headers, rate-limits, RLS (production)
+
+ Unit tests + Playwright E2E pass
+
+ README + ADMIN_GUIDE + launch checklist
+
+ Final audit report & GO/NO-GO decision

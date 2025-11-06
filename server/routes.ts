@@ -1,10 +1,29 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertOrderSchema, insertBidSchema, insertAnalyticsEventSchema } from "@shared/schema";
+import { insertOrderSchema, insertBidSchema, insertAnalyticsEventSchema, insertArtworkSchema } from "@shared/schema";
 import { z } from "zod";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication (Replit Auth integration)
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   // Get all artworks
   app.get("/api/artworks", async (req, res) => {
     try {
@@ -235,8 +254,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Create artwork
+  app.post("/api/admin/artworks", isAdmin, async (req, res) => {
+    try {
+      const artworkData = insertArtworkSchema.parse(req.body);
+      const artwork = await storage.createArtwork(artworkData);
+      res.json(artwork);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error creating artwork:", error);
+      res.status(500).json({ error: "Failed to create artwork" });
+    }
+  });
+
+  // Admin: Update artwork
+  app.patch("/api/admin/artworks/:id", isAdmin, async (req, res) => {
+    try {
+      const artwork = await storage.updateArtwork(req.params.id, req.body);
+      if (!artwork) {
+        return res.status(404).json({ error: "Artwork not found" });
+      }
+      res.json(artwork);
+    } catch (error) {
+      console.error("Error updating artwork:", error);
+      res.status(500).json({ error: "Failed to update artwork" });
+    }
+  });
+
+  // Admin: Get all bids
+  app.get("/api/admin/bids", isAdmin, async (req, res) => {
+    try {
+      const artworks = await storage.getAllArtworks();
+      const allBids = [];
+      
+      for (const artwork of artworks) {
+        const artworkBids = await storage.getBidsByArtwork(artwork.id);
+        allBids.push(...artworkBids.map(bid => ({ ...bid, artworkTitle: artwork.title })));
+      }
+      
+      res.json(allBids.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ));
+    } catch (error) {
+      console.error("Error fetching bids:", error);
+      res.status(500).json({ error: "Failed to fetch bids" });
+    }
+  });
+
   // Admin: Confirm order
-  app.post("/api/admin/orders/:id/confirm", async (req, res) => {
+  app.post("/api/admin/orders/:id/confirm", isAdmin, async (req, res) => {
     try {
       // Validate order exists first
       const existingOrder = await storage.getOrder(req.params.id);
@@ -258,7 +326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get all orders
-  app.get("/api/admin/orders", async (req, res) => {
+  app.get("/api/admin/orders", isAdmin, async (req, res) => {
     try {
       const allArtworks = await storage.getAllArtworks();
       const allOrders = [];
@@ -278,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get analytics dashboard data
-  app.get("/api/admin/analytics", async (req, res) => {
+  app.get("/api/admin/analytics", isAdmin, async (req, res) => {
     try {
       const [pageViews, orders, bids] = await Promise.all([
         storage.getAnalyticsByType("page_view"),

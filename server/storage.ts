@@ -6,13 +6,19 @@ import {
   type Bid,
   type InsertBid,
   type AnalyticsEvent,
-  type InsertAnalyticsEvent
+  type InsertAnalyticsEvent,
+  type User,
+  type UpsertUser
 } from "@shared/schema";
 import { db } from "../db/index";
-import { artworks, orders, bids, analyticsEvents, adminSettings } from "@shared/schema";
+import { artworks, orders, bids, analyticsEvents, adminSettings, users } from "@shared/schema";
 import { eq, desc, and, lte } from "drizzle-orm";
 
 export interface IStorage {
+  // Users (Replit Auth integration)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
   // Artworks
   getArtwork(id: string): Promise<Artwork | undefined>;
   getArtworkBySlug(slug: string): Promise<Artwork | undefined>;
@@ -48,6 +54,27 @@ export interface IStorage {
 }
 
 export class DbStorage implements IStorage {
+  // Users (Replit Auth integration)
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const result = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result[0];
+  }
+
   // Artworks
   async getArtwork(id: string): Promise<Artwork | undefined> {
     const result = await db.select().from(artworks).where(eq(artworks.id, id));
