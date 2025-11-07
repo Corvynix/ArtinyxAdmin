@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertOrderSchema, insertBidSchema, insertAnalyticsEventSchema, insertArtworkSchema } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { adminApiKeyAuth, isAdminBypass } from "./authBypass";
 import { emailService } from "./services/email";
 import { smsService } from "./services/sms";
 import { pdfService } from "./services/pdf";
@@ -15,8 +16,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
+      // Development mode: Allow API key authentication
+      if (process.env.NODE_ENV === "development") {
+        const apiKey = req.headers["x-admin-api-key"] || req.query.apiKey;
+        const devApiKey = process.env.DEV_ADMIN_API_KEY || "dev-admin-key-12345";
+        
+        if (apiKey === devApiKey) {
+          // Get or create dev admin user
+          let user = await storage.getUser("dev-admin-user");
+          if (!user) {
+            user = await storage.upsertUser({
+              id: "dev-admin-user",
+              email: "admin@artinyxus.com",
+              firstName: "Admin",
+              lastName: "User",
+              isAdmin: true
+            });
+          }
+          return res.json(user);
+        }
+      }
+      
+      // Production mode: Require authentication
+      if (!req.isAuthenticated || !req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       if (!user) {
@@ -338,8 +365,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin middleware: Use dev bypass in development, normal auth in production
+  const adminAuth = process.env.NODE_ENV === "development" 
+    ? [adminApiKeyAuth, isAdminBypass] 
+    : [isAuthenticated, isAdmin];
+  
   // Admin: Create artwork
-  app.post("/api/admin/artworks", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/artworks", ...adminAuth, async (req, res) => {
     try {
       const artworkData = insertArtworkSchema.parse(req.body);
       const artwork = await storage.createArtwork(artworkData);
@@ -354,7 +386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Update artwork
-  app.patch("/api/admin/artworks/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.patch("/api/admin/artworks/:id", ...adminAuth, async (req, res) => {
     try {
       const artwork = await storage.updateArtwork(req.params.id, req.body);
       if (!artwork) {
@@ -368,7 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get all bids
-  app.get("/api/admin/bids", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/bids", ...adminAuth, async (req, res) => {
     try {
       const artworks = await storage.getAllArtworks();
       const allBids = [];
@@ -388,7 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Confirm order
-  app.post("/api/admin/orders/:id/confirm", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/orders/:id/confirm", ...adminAuth, async (req, res) => {
     try {
       // Validate order exists first
       const existingOrder = await storage.getOrder(req.params.id);
@@ -527,7 +559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get all orders
-  app.get("/api/admin/orders", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/orders", ...adminAuth, async (req, res) => {
     try {
       const allArtworks = await storage.getAllArtworks();
       const allOrders = [];
@@ -547,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get analytics dashboard data
-  app.get("/api/admin/analytics", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/analytics", ...adminAuth, async (req, res) => {
     try {
       const [pageViews, orders, bids] = await Promise.all([
         storage.getAnalyticsByType("page_view"),
@@ -605,7 +637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Upload artwork images (protected)
-  app.post("/api/admin/upload", isAuthenticated, isAdmin, upload.array("images", 10), async (req, res) => {
+  app.post("/api/admin/upload", ...adminAuth, upload.array("images", 10), async (req, res) => {
     try {
       if (!req.files || !Array.isArray(req.files)) {
         return res.status(400).json({ error: "No files uploaded" });
@@ -625,7 +657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Generate sales report (protected)
-  app.get("/api/admin/reports/sales", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/reports/sales", ...adminAuth, async (req, res) => {
     try {
       const startDate = req.query.startDate 
         ? new Date(req.query.startDate as string)
@@ -660,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get revenue analytics (protected)
-  app.get("/api/admin/analytics/revenue", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/analytics/revenue", ...adminAuth, async (req, res) => {
     try {
       const period = req.query.period || "month";
       let startDate: Date;
@@ -691,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get best selling artworks (protected)
-  app.get("/api/admin/analytics/best-selling", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/analytics/best-selling", ...adminAuth, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const bestSelling = await storage.getBestSellingArtworks(limit);
@@ -703,7 +735,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Send email notification (protected)
-  app.post("/api/admin/notifications/email", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/notifications/email", ...adminAuth, async (req, res) => {
     try {
       const { to, subject, html } = req.body;
       const success = await emailService.sendEmail(to, subject, html);
@@ -715,7 +747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Check inventory alerts (protected)
-  app.get("/api/admin/inventory-alerts", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/inventory-alerts", ...adminAuth, async (req, res) => {
     try {
       const artworks = await storage.getAllArtworks();
       const alerts = [];
@@ -745,7 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Close auction and notify winner (protected)
-  app.post("/api/admin/auctions/:id/close", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/auctions/:id/close", ...adminAuth, async (req, res) => {
     try {
       const artwork = await storage.getArtwork(req.params.id);
       if (!artwork || artwork.type !== "auction") {
@@ -788,7 +820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get capacity for date range
-  app.get("/api/admin/capacity", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/capacity", ...adminAuth, async (req, res) => {
     try {
       const days = parseInt(req.query.days as string) || 7;
       const capacityData = [];
@@ -817,7 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Update daily capacity setting
-  app.post("/api/admin/capacity/settings", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/capacity/settings", ...adminAuth, async (req, res) => {
     try {
       const { dailyCapacity } = req.body;
       if (!dailyCapacity || dailyCapacity < 1 || dailyCapacity > 20) {
@@ -902,7 +934,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate invoice number when order is confirmed (protected)
-  app.post("/api/admin/orders/:id/generate-invoice", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/orders/:id/generate-invoice", ...adminAuth, async (req, res) => {
     try {
       const order = await storage.getOrder(req.params.id);
       if (!order) {
