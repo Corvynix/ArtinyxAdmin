@@ -196,7 +196,8 @@ CREATE TABLE IF NOT EXISTS production_slots (
 );
 
 CREATE INDEX IF NOT EXISTS idx_production_slots_date ON production_slots(date);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_production_slots_date_unique ON production_slots(date_trunc('day', date));
+-- Note: Uniqueness per day is enforced in application logic
+-- Cannot use unique index with date_trunc on TIMESTAMPTZ (not immutable)
 
 -- Buyer limits table
 CREATE TABLE IF NOT EXISTS buyer_limits (
