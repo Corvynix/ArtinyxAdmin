@@ -149,6 +149,29 @@ export class EmailService {
       html
     );
   }
+
+  async sendPaymentProofNotification(proofDetails: {
+    adminEmail: string;
+    orderId: string;
+    buyerName: string;
+    artworkTitle: string;
+    referenceNumber: string;
+  }): Promise<boolean> {
+    const html = `
+      <h2>Payment Proof Uploaded</h2>
+      <p><strong>Order ID:</strong> ${proofDetails.orderId}</p>
+      <p><strong>Buyer:</strong> ${proofDetails.buyerName}</p>
+      <p><strong>Artwork:</strong> ${proofDetails.artworkTitle}</p>
+      <p><strong>Reference Number:</strong> ${proofDetails.referenceNumber}</p>
+      <p>Please review and verify the payment proof in the admin dashboard.</p>
+    `;
+
+    return this.sendEmail(
+      proofDetails.adminEmail,
+      `Payment Proof Uploaded: Order ${proofDetails.orderId}`,
+      html
+    );
+  }
 }
 
 export const emailService = new EmailService();

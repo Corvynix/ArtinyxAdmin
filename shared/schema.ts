@@ -45,6 +45,10 @@ export const artworks = pgTable("artworks", {
   currentBidCents: bigint("current_bid_cents", { mode: "number" }),
   minIncrementCents: bigint("min_increment_cents", { mode: "number" }).default(50000), // 500 EGP default
   lowStockThreshold: integer("low_stock_threshold").default(2),
+  materialCostCents: bigint("material_cost_cents", { mode: "number" }).default(0),
+  packagingCostCents: bigint("packaging_cost_cents", { mode: "number" }).default(0),
+  laborCostCents: bigint("labor_cost_cents", { mode: "number" }).default(0),
+  minProfitMarginCents: bigint("min_profit_margin_cents", { mode: "number" }).default(60000), // 600 EGP default
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -59,9 +63,14 @@ export const orders = pgTable("orders", {
   priceCents: bigint("price_cents", { mode: "number" }).notNull(),
   paymentMethod: text("payment_method").$type<"vodafone_cash" | "instapay">(),
   paymentProof: text("payment_proof"),
+  paymentReferenceNumber: text("payment_reference_number"),
   invoiceNumber: text("invoice_number").unique(),
-  status: text("status").notNull().default("pending").$type<"pending" | "confirmed" | "cancelled" | "refunded" | "shipped">(),
+  status: text("status").notNull().default("pending").$type<"pending" | "confirmed" | "scheduled" | "cancelled" | "refunded" | "shipped">(),
   holdExpiresAt: timestamp("hold_expires_at"),
+  scheduledStartDate: timestamp("scheduled_start_date"),
+  estimatedCompletionDate: timestamp("estimated_completion_date"),
+  queuePosition: integer("queue_position"),
+  productionSlotId: varchar("production_slot_id"),
   shippedAt: timestamp("shipped_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -142,6 +151,25 @@ export const inventoryAlerts = pgTable("inventory_alerts", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Production slots table (capacity management)
+export const productionSlots = pgTable("production_slots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: timestamp("date").notNull(),
+  capacityTotal: integer("capacity_total").notNull().default(3),
+  capacityReserved: integer("capacity_reserved").notNull().default(0),
+  orderId: varchar("order_id").references(() => orders.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Buyer order limits tracking
+export const buyerLimits = pgTable("buyer_limits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  whatsapp: text("whatsapp").notNull(),
+  weekStart: timestamp("week_start").notNull(),
+  confirmedOrdersCount: integer("confirmed_orders_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertArtworkSchema = createInsertSchema(artworks).omit({ id: true, createdAt: true });
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
@@ -149,6 +177,8 @@ export const insertBidSchema = createInsertSchema(bids).omit({ id: true, created
 export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({ id: true, createdAt: true });
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true, sentAt: true });
 export const insertInventoryAlertSchema = createInsertSchema(inventoryAlerts).omit({ id: true, createdAt: true });
+export const insertProductionSlotSchema = createInsertSchema(productionSlots).omit({ id: true, createdAt: true });
+export const insertBuyerLimitSchema = createInsertSchema(buyerLimits).omit({ id: true, createdAt: true });
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
@@ -166,3 +196,7 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertInventoryAlert = z.infer<typeof insertInventoryAlertSchema>;
 export type InventoryAlert = typeof inventoryAlerts.$inferSelect;
+export type InsertProductionSlot = z.infer<typeof insertProductionSlotSchema>;
+export type ProductionSlot = typeof productionSlots.$inferSelect;
+export type InsertBuyerLimit = z.infer<typeof insertBuyerLimitSchema>;
+export type BuyerLimit = typeof buyerLimits.$inferSelect;

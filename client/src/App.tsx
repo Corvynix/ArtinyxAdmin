@@ -18,6 +18,7 @@ import AdminOrders from "@/pages/AdminOrders";
 import AdminBids from "@/pages/AdminBids";
 import AdminAnalytics from "@/pages/AdminAnalytics";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminCapacity from "@/pages/AdminCapacity";
 import CustomerDashboard from "@/pages/CustomerDashboard";
 import WallOfFame from "@/pages/WallOfFame";
 import NotFound from "@/pages/not-found";
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/admin/orders" component={AdminOrders} />
       <Route path="/admin/bids" component={AdminBids} />
       <Route path="/admin/analytics" component={AdminAnalytics} />
+      <Route path="/admin/capacity" component={AdminCapacity} />
       <Route component={NotFound} />
     </Switch>
   );

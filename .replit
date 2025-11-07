@@ -29,6 +29,10 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Restore Expired Holds"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -40,6 +44,17 @@ outputType = "webview"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Restore Expired Holds"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "while true; do sleep 3600; curl -X POST http://localhost:5000/api/restore-holds; done"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 expertMode = true

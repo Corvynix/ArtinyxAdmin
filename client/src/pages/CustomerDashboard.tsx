@@ -1,12 +1,15 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Download, Package, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, Package, Clock, CheckCircle, XCircle, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function CustomerDashboard() {
   const [language, setLanguage] = useState<"en" | "ar">("en");
@@ -14,15 +17,14 @@ export default function CustomerDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
 
-  const { data: orders = [], isLoading, refetch } = useQuery({
+  const { data: orders = [], isLoading } = useQuery({
     queryKey: ['/api/orders/user', searchQuery],
     queryFn: async () => {
-      if (!searchQuery) return [];
       const response = await fetch(`/api/orders/user/${searchQuery}`);
       if (!response.ok) throw new Error("Failed to fetch orders");
       return response.json();
     },
-    enabled: false,
+    enabled: !!searchQuery,
   });
 
   const handleSearch = () => {
@@ -35,7 +37,6 @@ export default function CustomerDashboard() {
       return;
     }
     setSearchQuery(whatsapp);
-    refetch();
   };
 
   const handleDownloadInvoice = async (orderId: string) => {
@@ -86,8 +87,118 @@ export default function CustomerDashboard() {
       confirmed: "default",
       shipped: "secondary",
       cancelled: "destructive",
+      scheduled: "secondary",
     };
     return <Badge variant={variants[status] || "outline"}>{status}</Badge>;
+  };
+
+  const uploadPaymentProofMutation = useMutation({
+    mutationFn: async ({ orderId, data }: { orderId: string; data: any }) => {
+      const response = await fetch(`/api/orders/${orderId}/payment`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) throw new Error("Failed to upload payment proof");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/user', searchQuery] });
+      toast({
+        title: "Success",
+        description: language === "en" 
+          ? "Payment proof uploaded successfully" 
+          : "تم إرسال إثبات الدفع بنجاح",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: language === "en" 
+          ? "Failed to upload payment proof" 
+          : "فشل إرسال إثبات الدفع",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const PaymentProofUpload = ({ orderId }: { orderId: string }) => {
+    const [paymentMethod, setPaymentMethod] = useState("");
+    const [referenceNumber, setReferenceNumber] = useState("");
+    const [screenshot, setScreenshot] = useState("");
+
+    const handleUpload = () => {
+      if (!paymentMethod || !referenceNumber) {
+        toast({
+          title: "Error",
+          description: language === "en" 
+            ? "Please fill all fields" 
+            : "يرجى ملء جميع الحقول",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      uploadPaymentProofMutation.mutate({
+        orderId,
+        data: {
+          paymentMethod,
+          paymentReferenceNumber: referenceNumber,
+          paymentProof: screenshot || "pending"
+        }
+      });
+    };
+
+    return (
+      <div className="mt-4 p-4 border rounded-lg bg-muted/30">
+        <h4 className="font-medium mb-3">
+          {language === "en" ? "Upload Payment Proof" : "إرسال إثبات الدفع"}
+        </h4>
+        <div className="space-y-3">
+          <div>
+            <Label>{language === "en" ? "Payment Method" : "طريقة الدفع"}</Label>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <SelectTrigger data-testid={`select-payment-method-${orderId}`}>
+                <SelectValue placeholder={language === "en" ? "Select method" : "اختر الطريقة"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vodafone_cash">Vodafone Cash</SelectItem>
+                <SelectItem value="instapay">InstaPay</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>{language === "en" ? "Reference Number" : "رقم المرجع"}</Label>
+            <Input
+              value={referenceNumber}
+              onChange={(e) => setReferenceNumber(e.target.value)}
+              placeholder={language === "en" ? "Enter reference number" : "أدخل رقم المرجع"}
+              data-testid={`input-reference-${orderId}`}
+            />
+          </div>
+          <div>
+            <Label>{language === "en" ? "Screenshot (Optional)" : "لقطة الشاشة (اختياري)"}</Label>
+            <Input
+              value={screenshot}
+              onChange={(e) => setScreenshot(e.target.value)}
+              placeholder={language === "en" ? "Screenshot URL (optional)" : "رابط لقطة الشاشة (اختياري)"}
+              data-testid={`input-screenshot-${orderId}`}
+            />
+          </div>
+          <Button
+            onClick={handleUpload}
+            disabled={uploadPaymentProofMutation.isPending}
+            className="w-full"
+            data-testid={`button-upload-proof-${orderId}`}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {uploadPaymentProofMutation.isPending 
+              ? (language === "en" ? "Uploading..." : "جاري الإرسال...")
+              : (language === "en" ? "Submit Payment Proof" : "إرسال إثبات الدفع")}
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -223,12 +334,40 @@ export default function CustomerDashboard() {
                         <Download className="w-4 h-4 mr-2" />
                         {language === "en" ? "Download Invoice" : "تحميل الفاتورة"}
                       </Button>
+                    ) : order.status === "scheduled" ? (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-green-600">
+                          {language === "en"
+                            ? `Queue Position: ${order.queuePosition || "TBD"}`
+                            : `المركز في قائمة الانتظار: ${order.queuePosition || "غير محدد"}`}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {language === "en"
+                            ? `Production starts: ${order.scheduledStartDate ? new Date(order.scheduledStartDate).toLocaleDateString() : "TBD"}`
+                            : `يبدأ التنفيذ: ${order.scheduledStartDate ? new Date(order.scheduledStartDate).toLocaleDateString('ar-EG') : "غير محدد"}`}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {language === "en"
+                            ? `Estimated completion: ${order.estimatedCompletionDate ? new Date(order.estimatedCompletionDate).toLocaleDateString() : "TBD"}`
+                            : `الوقت المتوقع للتسليم: ${order.estimatedCompletionDate ? new Date(order.estimatedCompletionDate).toLocaleDateString('ar-EG') : "غير محدد"}`}
+                        </p>
+                      </div>
                     ) : order.status === "pending" ? (
-                      <p className="text-sm text-muted-foreground">
-                        {language === "en"
-                          ? "Your order is pending confirmation. You have 24 hours to complete payment."
-                          : "طلبك قيد الانتظار. لديك 24 ساعة لإكمال الدفع."}
-                      </p>
+                      <>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {language === "en"
+                            ? "Your order is pending confirmation. You have 24 hours to complete payment."
+                            : "طلبك قيد الانتظار. لديك 24 ساعة لإكمال الدفع."}
+                        </p>
+                        {!order.paymentProof && <PaymentProofUpload orderId={order.id} />}
+                        {order.paymentProof && (
+                          <p className="text-sm font-medium text-green-600">
+                            {language === "en"
+                              ? "Payment proof submitted. Waiting for admin confirmation."
+                              : "تم إرسال إثبات الدفع. في انتظار تأكيد الإدارة."}
+                          </p>
+                        )}
+                      </>
                     ) : null}
                   </CardContent>
                 </Card>

@@ -12,10 +12,14 @@ import {
   type Notification,
   type InsertNotification,
   type InventoryAlert,
-  type InsertInventoryAlert
+  type InsertInventoryAlert,
+  type ProductionSlot,
+  type InsertProductionSlot,
+  type BuyerLimit,
+  type InsertBuyerLimit
 } from "@shared/schema";
 import { db } from "../db/index";
-import { artworks, orders, bids, analyticsEvents, adminSettings, users, notifications, inventoryAlerts } from "@shared/schema";
+import { artworks, orders, bids, analyticsEvents, adminSettings, users, notifications, inventoryAlerts, productionSlots, buyerLimits } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql as drizzleSql } from "drizzle-orm";
 
 export interface IStorage {
@@ -83,6 +87,19 @@ export interface IStorage {
   
   // Wall of Fame
   getTopCanvasBuyers(limit?: number): Promise<Array<{ buyerName: string; whatsapp: string; artworkTitle: string; size: string; priceCents: number; createdAt: Date }>>;
+  
+  // Production Slots (Capacity Management)
+  getProductionSlotByDate(date: Date): Promise<ProductionSlot | undefined>;
+  createProductionSlot(slot: InsertProductionSlot): Promise<ProductionSlot>;
+  updateProductionSlot(id: string, slot: Partial<ProductionSlot>): Promise<ProductionSlot | undefined>;
+  getAvailableCapacity(date: Date): Promise<number>;
+  reserveCapacity(date: Date, orderId: string): Promise<boolean>;
+  getNextAvailableSlot(daysToCheck?: number): Promise<{ date: Date; position: number } | null>;
+  
+  // Buyer Limits
+  getBuyerLimit(whatsapp: string, weekStart: Date): Promise<BuyerLimit | undefined>;
+  incrementBuyerLimit(whatsapp: string): Promise<void>;
+  checkBuyerLimit(whatsapp: string, maxPerWeek?: number): Promise<boolean>;
 }
 
 export class DbStorage implements IStorage {
@@ -441,6 +458,140 @@ export class DbStorage implements IStorage {
       priceCents: order.priceCents,
       createdAt: order.createdAt
     }));
+  }
+
+  // Production Slots (Capacity Management)
+  async getProductionSlotByDate(date: Date): Promise<ProductionSlot | undefined> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    const result = await db.select().from(productionSlots)
+      .where(and(
+        gte(productionSlots.date, startOfDay),
+        lte(productionSlots.date, endOfDay)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async createProductionSlot(slot: InsertProductionSlot): Promise<ProductionSlot> {
+    const result = await db.insert(productionSlots).values([slot as any]).returning();
+    return result[0];
+  }
+
+  async updateProductionSlot(id: string, slot: Partial<ProductionSlot>): Promise<ProductionSlot | undefined> {
+    const result = await db.update(productionSlots)
+      .set(slot as any)
+      .where(eq(productionSlots.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getAvailableCapacity(date: Date): Promise<number> {
+    const dailyCapacity = await this.getSetting("daily_capacity") || 3;
+    const slot = await this.getProductionSlotByDate(date);
+    
+    if (!slot) {
+      return dailyCapacity;
+    }
+    
+    return Math.max(0, slot.capacityTotal - slot.capacityReserved);
+  }
+
+  async reserveCapacity(date: Date, orderId: string): Promise<boolean> {
+    const dailyCapacity = await this.getSetting("daily_capacity") || 3;
+    let slot = await this.getProductionSlotByDate(date);
+    
+    if (!slot) {
+      slot = await this.createProductionSlot({
+        date,
+        capacityTotal: dailyCapacity,
+        capacityReserved: 1,
+        orderId
+      });
+      return true;
+    }
+    
+    if (slot.capacityReserved >= slot.capacityTotal) {
+      return false;
+    }
+    
+    await this.updateProductionSlot(slot.id, {
+      capacityReserved: slot.capacityReserved + 1,
+      orderId
+    });
+    
+    return true;
+  }
+
+  async getNextAvailableSlot(daysToCheck: number = 30): Promise<{ date: Date; position: number } | null> {
+    const dailyCapacity = await this.getSetting("daily_capacity") || 3;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    for (let i = 0; i < daysToCheck; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(today.getDate() + i);
+      
+      const availableCapacity = await this.getAvailableCapacity(checkDate);
+      
+      if (availableCapacity > 0) {
+        const slot = await this.getProductionSlotByDate(checkDate);
+        const position = slot ? slot.capacityReserved + 1 : 1;
+        return { date: checkDate, position };
+      }
+    }
+    
+    return null;
+  }
+
+  // Buyer Limits
+  async getBuyerLimit(whatsapp: string, weekStart: Date): Promise<BuyerLimit | undefined> {
+    const result = await db.select().from(buyerLimits)
+      .where(and(
+        eq(buyerLimits.whatsapp, whatsapp),
+        eq(buyerLimits.weekStart, weekStart)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async incrementBuyerLimit(whatsapp: string): Promise<void> {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const existing = await this.getBuyerLimit(whatsapp, weekStart);
+    
+    if (existing) {
+      await db.update(buyerLimits)
+        .set({ confirmedOrdersCount: existing.confirmedOrdersCount + 1 })
+        .where(eq(buyerLimits.id, existing.id));
+    } else {
+      await db.insert(buyerLimits).values([{
+        whatsapp,
+        weekStart,
+        confirmedOrdersCount: 1
+      } as any]);
+    }
+  }
+
+  async checkBuyerLimit(whatsapp: string, maxPerWeek: number = 2): Promise<boolean> {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const limit = await this.getBuyerLimit(whatsapp, weekStart);
+    
+    if (!limit) {
+      return true;
+    }
+    
+    return limit.confirmedOrdersCount < maxPerWeek;
   }
 }
 

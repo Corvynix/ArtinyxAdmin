@@ -5,10 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageCircle, Clock, Calendar } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import ScarcityBadge from "@/components/ScarcityBadge";
 import PriceDisplay from "@/components/PriceDisplay";
+import SEO from "@/components/SEO";
 import { artworksAPI, ordersAPI, analyticsAPI } from "@/lib/api";
 
 export default function ArtworkPage() {
@@ -24,6 +25,15 @@ export default function ArtworkPage() {
     queryKey: ["/api/artworks", slug],
     queryFn: () => artworksAPI.getBySlug(slug),
     enabled: !!slug
+  });
+
+  const { data: capacityInfo } = useQuery({
+    queryKey: ["/api/capacity/availability"],
+    queryFn: async () => {
+      const response = await fetch("/api/capacity/availability");
+      if (!response.ok) return null;
+      return response.json();
+    }
   });
 
   const createOrderMutation = useMutation({
@@ -111,6 +121,12 @@ export default function ArtworkPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={artwork.title}
+        description={artwork.shortDescription || `${artwork.title} - Limited edition canvas art at Artinyxus. ${artwork.type === "unique" ? "Unique piece" : "Limited copies available"}. Order via WhatsApp today.`}
+        ogImage={artwork.images[0]}
+        ogType="product"
+      />
       <Navbar currentLang={language} onLanguageChange={setLanguage} />
       
       <div className="pt-24 pb-16 px-4">
@@ -209,6 +225,31 @@ export default function ArtworkPage() {
                       />
 
                       <div className="space-y-3">
+                        {capacityInfo && capacityInfo.available && (
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              <span className="font-medium text-blue-700 dark:text-blue-300">
+                                {language === "en"
+                                  ? capacityInfo.daysUntilStart === 0
+                                    ? "Available today!"
+                                    : `Available in ${capacityInfo.daysUntilStart} day${capacityInfo.daysUntilStart > 1 ? 's' : ''}`
+                                  : capacityInfo.daysUntilStart === 0
+                                    ? "متاح اليوم!"
+                                    : `متاح خلال ${capacityInfo.daysUntilStart} يوم`}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                              <Calendar className="w-3 h-3" />
+                              <span>
+                                {language === "en"
+                                  ? `Estimated completion: ${capacityInfo.estimatedCompletion} days`
+                                  : `الوقت المتوقع للتسليم: ${capacityInfo.estimatedCompletion} يوم`}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
                         <Button
                           size="lg"
                           onClick={handleWhatsAppOrder}

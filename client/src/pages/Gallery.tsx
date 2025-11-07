@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import ArtworkGallery from "@/components/ArtworkGallery";
+import SEO from "@/components/SEO";
 import { artworksAPI } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
@@ -62,6 +63,12 @@ export default function Gallery() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title={language === "en" ? "Art Gallery - Browse Exclusive Canvas Art" : "معرض الفنون - تصفح الفن الحصري"}
+        description={language === "en" 
+          ? "Browse our exclusive collection of unique and limited edition canvas art. Filter by style, price, and availability. Own a masterpiece today." 
+          : "تصفح مجموعتنا الحصرية من الفن الفريد والمحدود الإصدار. فلتر حسب الأسلوب والسعر والتوفر. احصل على تحفة فنية اليوم."}
+      />
       <Navbar currentLang={language} onLanguageChange={setLanguage} />
       
       <div className="pt-24 px-4">

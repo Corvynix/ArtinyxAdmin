@@ -1,0 +1,292 @@
+المبدأ الأساسي (single sentence)
+
+الموقع لازم يبيع «هوية» لا «منتج» — كل عنصر رقمي يولد رغبة، والعمليات الخلفية تمنع بدء التنفيذ قبل تحقق الموارد والقدرة الإنتاجية.
+
+2 — أولويات لا غنى عنها (ordered)
+
+منع البدء في الإنتاج حتى تأكيد الدفع + التحقق (hold → admin confirm).
+
+التحكم بالسعة (capacity control): لا تؤكد أكثر من عدد النسخ/اليوم الذي يمكنك تنفيذه.
+
+شفافية للمشتري (ETA & queue position) فور الدفع.
+
+آليات رفض/إرجاع سهلة وواضحة مع قواعد زمنية.
+
+آليات تنبيه آلية للإدارة (Supabase triggers → SMTP).
+
+تجربة شراء فاخرة بسيطة ومباشرة (WhatsApp CTA، قصة/ندرة/ضمان).
+
+تحليلات يومية + لوحة تحكم تشغيلية لاتخاذ قرارات تسعيرية/ترويجية.
+
+3 — وظائف الموقع والتقنيات المطلوبة (must-have)
+
+(كل بند هنا لازم يتنفّذ 1:1)
+
+3.1 Frontend (UX/CRO)
+
+صفحة عمل فني مفصلة: صور، قصة، الأحجام، السعر المرجعي (crossed-out)، اختيار المقاس، عداد الندرة (يظهر بعد 3s)، شريط ضمان، زر “طلب عبر واتساب”.
+
+عرض مؤشر السعة الحالية على صفحة العمل: “مواعيد التنفيذ المتاحة: يبدأ في X أيام” أو “مباشر — شحن في 3–5 أيام” بناءً على ال backlog.
+
+إشعار/badge عند نفاد المخزون أو لو العمل بـ Auction.
+
+صفحة Checkout بسيطة: تعرض ملخص الطلب + حقل رفع إثبات الدفع + حقل رقم التحويل.
+
+صفحة حالة الطلب (Profile) تبين: مكانك في قائمة الانتظار، ETA محدث، إمكانية إلغاء خلال فترة معينة.
+
+3.2 Backend (Supabase)
+
+جداول: artworks, orders, bids, analytics_events, admin_settings, production_slots, queue.
+
+دوال/Triggers: create_order_hold_stock(), fn_restore_expired_holds(), record_bid(), extend_auction_sniping_protection(), trigger لإرسال إيميل عند المناخفض المخزون.
+
+منطق مهم: أمر ينشأ status=pending عند ضغط WhatsApp، لا يتحول confirmed إلا بعد التحقق من إثبات الدفع + التأكد من وجود سعة.
+
+جدول production_slots أو daily_capacity يحتوي على: date, capacity_total, capacity_reserved. عند تأكيد طلب، تحجز slot تلقائيًا. إن لم تكن متوفرة، الطلب يتحول إلى scheduled ويعرض للمستخدم ETA.
+
+3.3 Notifications & Ops
+
+Supabase SMTP (no-reply@artinyxus.com
+) لإعلام الأدمن والعميل.
+
+Admin alerts (email + dashboard notification) عند: new pending order, payment proof uploaded, low stock, auction bid.
+
+Slack/Telegram optional — لكن نلتزم بصفر تكلفة → استخدم البريد والـ dashboard.
+
+3.4 Admin Tools (must)
+
+Dashboard: قائمة الطلبيات، فلتر: pending/awaiting_payment/scheduled/confirmed/shipped.
+
+زر “verify payment” يغير الحالة → يحجز slot إن متاح أو يضع في قائمة انتظار مع تاريخ بدء متوقع.
+
+إمكانية تعديل daily_capacity, تعطيل البيع مؤقتًا على عمل فني، إيقاف مزاد.
+
+Export CSV للطلبيات اليومية.
+
+4 — قواعد تشغيل تمنع الازدحام (hard rules / non-negotiable)
+
+Rule A — No production before confirmed: لا يبدأ أي عمل إلا بعد confirmed بواسطة admin بعد تحقق من إثبات الدفع.
+
+Rule B — Capacity limit: لا تؤكد أكثر من daily_capacity (مثلاً 2–3 لوحات يومياً)؛ يمكن تعديلها في Admin.
+
+Rule C — Hold & auto-cancel: بعد الضغط على WhatsApp تنخفض الكمية (hold) لمدة 24h. إذا لم يصل إثبات الدفع خلال 24h → order = cancelled و stock restored.
+
+Rule D — Scheduled fulfillment: إذا لم توجد capacity فورية، يتم تأكيد الدفع ولكن توضع حالة scheduled مع ETA واضح للعميل وموعد بدء التنفيذ.
+
+Rule E — Max confirmed per buyer: واحدة أو اثنان تأكيدات في الأسبوع لكل مشتري (منع الاستحواذ/حبس السلع).
+
+Rule F — Anti-fraud: وظائف تحقق من تطابق reference number + screenshot pattern (admin manual check but with easy UI). Reject if mismatch.
+
+5 — عمليات التشغيل (Fulfillment flow) — خطوة بخطوة
+
+زبون يضغط “طلب عبر واتساب” → Netlify function ينشئ order status=pending, hold_expires=now+24h، يقلل remaining. يفتح wa.me للعميل.
+
+الزبون يدفع Vodafone Cash / InstaPay ويرسل صورة الإيصال ورقم العملية عبر صفحة حالة الطلب أو يرفعها في WhatsApp ثم تدخل يدويًا في النظام.
+
+Admin يستلم إشعار بالبريد + dashboard. يدخل ويفحص الإيصال:
+
+لو صحيح وdaily_capacity يسمح → يضغط “Confirm” → order.status=confirmed, يحجز slot في production_slots, يرسل رسالة تأكيد للعميل مع ETA.
+
+لو صحيح لكن لا سعة → يغير إلى scheduled ويحدد تاريخ بدء، يرسل رسالة: “تم استلام الدفع، طلبك مقرون بالرقم X، سيبدأ التنفيذ يوم DD/MM.”
+
+لو الإيصال مش واضح → يرسل Admin رسالة قالب تلقائي يطلب إعادة إثبات خلال 24 ساعة.
+
+عند إكمال التنفيذ → Admin يعلّق status=shipped, يضيف رقم تتبع (إذا الشحن مدفوع من العميل) أو يُنسّق الشحن.
+
+بعد التسليم: خلال 7 أيام، يمكن للعميل طلب استرجاع وفق سياسة الضمان.
+
+6 — تجربة العميل (نصوص ورسائل جاهزة)
+
+WhatsApp prefilled (Arabic):
+
+مرحباً، أود طلب لوحة {TITLE} — المقاس: {SIZE} — السعر: {PRICE} EGP. اسمي: {NAME}. رقم الواتساب: {PHONE}. من فضلك أكد التوفر ورقم الدفع.
+
+Email to Admin on new pending order:
+Subject: New pending order — {ART_TITLE} — {SIZE} — {ORDER_ID}
+Body: Buyer: {NAME}, WhatsApp: {PHONE}, Price: {PRICE} EGP, Action: Verify payment & capacity.
+
+Admin reply template (if proof unclear):
+
+شكراً، لو سمحت أعد إرسال صورة إيصال الدفع واضحة مع رقم العملية. نحتاج التأكيد خلال 24 ساعة لتثبيت الحجز.
+
+Customer confirmation (on confirmed):
+
+شكرًا! تم تأكيد طلبك ({ORDER_ID}). سيبدأ التنفيذ في {START_DATE} — المتوقع الوصول خلال {ETA}. رقم التواصل: {ADMIN_PHONE}. تذكر: ضمان استرجاع 7 أيام بعد التسليم.
+
+7 — التكلفة وهوامش الربح (تأكد ربح صافي ≥ 600 EGP)
+
+لازم حساب عملي لكل حجم — نعرض مثال رقمي واضح (حسابه خطوة بخطوة):
+
+Assumptions (مثال واقعي)
+
+خامات (قماش، أطر، طلاء، مواد) = 300 EGP (Small), 450 EGP (Medium), 700 EGP (Large)
+
+تغليف + مواد فاخرة = 150 EGP (Small), 200 EGP (Medium), 300 EGP (Large)
+
+شحن متوقع (يدفعه العميل عادة) = 0 (if buyer pays) — لكن لو بترسل مجانية، احسبها هنا 300 EGP.
+
+وقت عمل الفنان (labour cost target) = تريد أن تكسب مقابل الوقت: افرض 3 ساعات Small @ 200 EGP/hr = 600 EGP، Medium 6h @200=1200، Large 12h@200=2400. (هذه تكلفة فرصة الفنان)
+
+مصاريف تشغيل (net/supabase cost=0), تغلب: 0.
+
+مثال حساب Small (30×40):
+
+Price retail (طبقاً للمصفوفة) = 2,500 EGP (نأخذ وسط النطاق)
+
+تكاليف:
+
+raw materials = 300
+
+packaging = 150
+
+artist labour = 600
+
+other (misc) = 50
+
+Total cost = 300 +150 +600 +50 = 1100 EGP
+
+Profit before shipping/tax = 2,500 − 1,100 = 1,400 EGP → صافي > 600 ✅
+
+Medium (50×70) مثال:
+
+Price = 5,500 EGP
+
+Costs: materials 450 + packaging 200 + labor 1,200 + misc 100 = 1,950
+
+Profit = 5,500 − 1,950 = 3,550 EGP ✅
+
+الخلاصة: مع الأسعار الموصى بها، صافي الربح > 600 EGP بسهولة لو المشتري يدفع الشحن أو نشكل حد أدنى للشحن المجاني.
+
+قاعدة: قبل تأكيد الدفع للبدء، احسب تلقائياً expected_profit = price - estimated_materials - packaging - labour_estimate - shipping_covered_by_you. إذا expected_profit < 600 → رفض أو ارتفع السعر تلقائياً (Upsell / add COA / premium framing).
+
+8 — آليات الحد من الطلبات الأولية (so you don't get swamped)
+
+Release cadence: لا تدرج كل الأعمال للبيع دفعة واحدة. كل يوم أطلق 1–3 أعمال فقط (drop schedule).
+
+Daily capacity enforcer: Admin يعين daily_capacity = عدد اللوحات التي يمكن تنفيذها يومياً. النظام يمنع تأكيد أكثر من ذلك.
+
+Pre-schedule sales: عند جناح الطلب العالي، افتح خيار “Pre-order — delivery within X days” واجعل العميل يعرف ETA.
+
+Waitlist & automatic upsell: إن لم تكن المساحة متاحة، أعط المشتري خيار الانضمام للـ Waitlist + عرض منتج بديل/نسخة أصغر.
+
+Minimum processing time display: اختر realistic lead times (مثلاً 3–7 أيام للعمل، + شحن 3–7 أيام). لا تبالغ بالتواريخ القصيرة.
+
+9 — مؤشرات الأداء التي تتابعها يوميًا/أسبوعيًا/شهريًا (KPIs)
+
+DAILY: orders_created, orders_confirmed, capacity_used%, pending_payment_count, low_stock_items
+
+WEEKLY: conversion_rate (views → whatsapp_click → confirmed), average_order_value, revenue, refunds_count
+
+MONTHLY: LTV, repeat_rate, average_lead_time, top_5 selling works, backlog_days (average ETA)
+
+ALERTS: pending_payment > X, pending_confirmed > capacity_threshold, refunds_rate > 5%
+
+10 — تحليلات + A/B + تحسين التحويل
+
+Track events: page_view, whatsapp_click, order_created, payment_proof_uploaded, order_confirmed, bid_placed.
+
+اجعل dashboard يظهر funnel conversion و خرائط الحرارة (بسيطة عبر Google Analytics أو Plausible free).
+
+اختبر صياغات العنوان/CTA (A/B): “اطلب الآن” vs “احجز الآن — دفع كامل” — أي واحدة تعطي أعلى conversion؟
+
+استخدم urgency experiments: تظهر ندرة بعد 3s أو فورًا؟
+
+11 — الدعم وعمليات ما بعد البيع (Customer Success)
+
+توفر رقم واتساب دعم مباشر + قالب ردود سريع (FAQ).
+
+Support SLA: الرد خلال 12 ساعة عمل، وفتح تذكرة داخل Supabase support_tickets.
+
+سياسة استرجاع واضحة: 7 أيام من الاستلام، صورة تلف، شرط عدم تلف الإطار، أو else refund (يسهل الشراء).
+
+Post-sale: دعوة للانضمام لـ “Collectors Circle” بعد 1–2 أسبوع (لزيادة CLTV).
+
+12 — حماية أمنية وموثوقية
+
+لا تبدأ الإنتاج حتى payment_confirmed (prevents chargebacks).
+
+احتفظ بـ SUPABASE_SERVICE_ROLE_KEY سرّي.
+
+CSP headers, RLS on production (orders, admin).
+
+Rate-limit functions: limit create-order calls/IP.
+
+Audit log: كل تغيير يكتب في admin_audit.
+
+13 — التشغيل اليدوي الآمن (admin runbooks)
+
+Runbook: Verify Payment
+
+افتح order record.
+
+تحقق من screenshot & reference number.
+
+اتصل بالعميل إذا لزم.
+
+اضغط Confirm → يحجز slot أو يعين Scheduled date.
+
+Record action to admin_audit.
+
+Runbook: Handle Overbook
+
+إذا confirmed > capacity → اضغط pause sales على الأعمال المتبقية.
+
+اتصل بالعملاء المتأثرين وأعرض ترقية أو استرداد.
+
+Runbook: Restore expired holds
+
+شغّل fn_restore_expired_holds cron كل 1 ساعة.
+
+14 — مقترحات لزيادة الربح بدون زيادة الجهد الكبير
+
+Premium framing add-on (extra fee) — upsell قبل التأكيد.
+
+Certificate of Authenticity مدفوع + رقم تسلسلي (COA) للأعمال المتوسطـة والكبرى.
+
+Limited editions numbering (e.g., 3/7) — يزيد القيمة.
+
+Membership / Collectors Circle للمهتمين تحصل مقابل سنوي أو بدعوة فقط (يمنح أولية الوصول للـdrops).
+
+Referral credit: اشترِ وأحصل على خصم للمرجع (يدفع عملاً واحداً أقل تكلفة).
+
+15 — محتويات قانونية بسيطة لازم تكون في الموقع
+
+Terms & Conditions: payment, refunds, shipping, intellectual property.
+
+Privacy Policy (GDPR-lite): data storage in Supabase, cookies, analytics.
+
+Disclaimer for auctions: final bids binding after admin confirmation.
+
+16 — Monitoring & escalation
+
+تفعيل email daily digest: عدد الـ pending, confirmed, refunds.
+
+Alert if pending_payment_count > X → auto escalate SMS/WhatsApp to admin (manual at zero-cost via admin phone).
+
+Keep a simple incident sheet in the repo for outages + last backup timestamp.
+
+17 — خطوات تنفيذية فورية (Do THIS NOW — 7 خطوات)
+
+Set daily_capacity realistic (start with 1–2/day).
+
+Enforce rule: Confirm only after payment proof and capacity check.
+
+Implement hold 24h + auto restore cron.
+
+Implement slot reservation table and auto-booking on confirm.
+
+Create email templates & SMTP via Supabase and test notifications.
+
+Show ETA & queue position to customer immediately after payment.
+
+Pause sales toggle in admin to prevent oversell in emergencies.
+
+18 — أخيرا: موجز عملي قصير جداً (لنفّذ فوراً)
+
+ابدأ بـ: daily_capacity = 1 و hold=24h و payment_confirm_required = true.
+
+لا تحدث status=confirmed إلا بالأدمن.
+
+اعرض ETA واضح للعميل فور الدفع.
+
+قم بـ weekly review لحجم الطلب ووفر staff أو outsourced help لو backlog يزيد.

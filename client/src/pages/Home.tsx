@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import ArtworkGallery from "@/components/ArtworkGallery";
+import SEO from "@/components/SEO";
 import { artworksAPI, analyticsAPI } from "@/lib/api";
 
 export default function Home() {
@@ -62,6 +63,12 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
+      <SEO
+        title={language === "en" ? "Home - Exclusive Art on Canvas" : "الرئيسية - فن حصري على القماش"}
+        description={language === "en" 
+          ? "Discover exclusive limited edition canvas art at Artinyxus. Own your unique piece today with our 7-day money-back guarantee." 
+          : "اكتشف الفن الحصري المحدود الإصدار في Artinyxus. احصل على قطعتك الفريدة اليوم مع ضمان استرجاع 7 أيام."}
+      />
       <Navbar currentLang={language} onLanguageChange={setLanguage} />
       <Hero language={language} />
       

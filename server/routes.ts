@@ -390,24 +390,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Order is not in pending status" });
       }
       
-      const order = await storage.updateOrderStatus(req.params.id, "confirmed");
+      // Get artwork for profit validation
+      const artwork = await storage.getArtwork(existingOrder.artworkId);
+      if (!artwork) {
+        return res.status(404).json({ error: "Artwork not found" });
+      }
       
-      if (order && order.whatsapp) {
-        const artwork = await storage.getArtwork(order.artworkId);
-        if (artwork) {
-          let invoiceNumber = order.invoiceNumber;
-          if (!invoiceNumber) {
-            invoiceNumber = `INV-${Date.now()}-${randomUUID().substring(0, 8).toUpperCase()}`;
-            await storage.updateOrder(order.id, { invoiceNumber });
+      // Profit margin validation
+      const materialCost = artwork.materialCostCents || 0;
+      const packagingCost = artwork.packagingCostCents || 0;
+      const laborCost = artwork.laborCostCents || 0;
+      const totalCost = materialCost + packagingCost + laborCost;
+      const profit = existingOrder.priceCents - totalCost;
+      const minProfit = artwork.minProfitMarginCents || 60000;
+      
+      if (profit < minProfit) {
+        return res.status(400).json({ 
+          error: "Profit margin too low",
+          details: {
+            price: existingOrder.priceCents / 100,
+            costs: totalCost / 100,
+            profit: profit / 100,
+            minRequired: minProfit / 100
           }
-          
-          await smsService.sendOrderConfirmationSMS({
-            phone: order.whatsapp,
-            name: order.buyerName || "Customer",
-            artworkTitle: artwork.title,
-            invoiceNumber,
-          }).catch(err => console.error("Failed to send order confirmation SMS:", err));
+        });
+      }
+      
+      // Check buyer limit
+      if (existingOrder.whatsapp) {
+        const canOrder = await storage.checkBuyerLimit(existingOrder.whatsapp);
+        if (!canOrder) {
+          return res.status(400).json({ error: "Buyer has reached weekly order limit (2 per week)" });
         }
+      }
+      
+      // Check capacity for today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const availableCapacity = await storage.getAvailableCapacity(today);
+      
+      let order;
+      let invoiceNumber = existingOrder.invoiceNumber;
+      if (!invoiceNumber) {
+        invoiceNumber = `INV-${Date.now()}-${randomUUID().substring(0, 8).toUpperCase()}`;
+      }
+      
+      if (availableCapacity > 0) {
+        // Capacity available - confirm immediately
+        const reserved = await storage.reserveCapacity(today, existingOrder.id);
+        if (!reserved) {
+          return res.status(500).json({ error: "Failed to reserve capacity slot" });
+        }
+        
+        const estimatedCompletion = new Date(today);
+        estimatedCompletion.setDate(today.getDate() + 5); // 5 days production time
+        
+        order = await storage.updateOrder(req.params.id, {
+          status: "confirmed",
+          scheduledStartDate: today,
+          estimatedCompletionDate: estimatedCompletion,
+          queuePosition: await storage.getProductionSlotByDate(today).then(s => s?.capacityReserved || 1),
+          invoiceNumber
+        });
+        
+        // Increment buyer limit
+        if (existingOrder.whatsapp) {
+          await storage.incrementBuyerLimit(existingOrder.whatsapp);
+        }
+      } else {
+        // No capacity - schedule for next available slot
+        const nextSlot = await storage.getNextAvailableSlot();
+        if (!nextSlot) {
+          return res.status(400).json({ error: "No capacity available in next 30 days" });
+        }
+        
+        const reserved = await storage.reserveCapacity(nextSlot.date, existingOrder.id);
+        if (!reserved) {
+          return res.status(500).json({ error: "Failed to reserve capacity slot" });
+        }
+        
+        const estimatedCompletion = new Date(nextSlot.date);
+        estimatedCompletion.setDate(nextSlot.date.getDate() + 5);
+        
+        order = await storage.updateOrder(req.params.id, {
+          status: "scheduled",
+          scheduledStartDate: nextSlot.date,
+          estimatedCompletionDate: estimatedCompletion,
+          queuePosition: nextSlot.position,
+          invoiceNumber
+        });
+        
+        // Increment buyer limit
+        if (existingOrder.whatsapp) {
+          await storage.incrementBuyerLimit(existingOrder.whatsapp);
+        }
+      }
+      
+      // Send notifications
+      if (order && existingOrder.whatsapp && artwork) {
+        const eta = order.estimatedCompletionDate ? 
+          new Date(order.estimatedCompletionDate).toLocaleDateString('en-GB') : 
+          "TBD";
+        const startDate = order.scheduledStartDate ? 
+          new Date(order.scheduledStartDate).toLocaleDateString('en-GB') : 
+          "TBD";
+        
+        const message = order.status === "confirmed" ?
+          `تم تأكيد طلبك! (${invoiceNumber}). سيبدأ التنفيذ اليوم. المتوقع الوصول: ${eta}` :
+          `تم استلام الدفع! طلبك ${invoiceNumber} في قائمة الانتظار. المركز: ${order.queuePosition}. سيبدأ التنفيذ: ${startDate}`;
+        
+        await smsService.sendOrderConfirmationSMS({
+          phone: existingOrder.whatsapp,
+          name: existingOrder.buyerName || "Customer",
+          artworkTitle: artwork.title,
+          invoiceNumber,
+        }).catch(err => console.error("Failed to send order confirmation SMS:", err));
       }
       
       res.json(order);
@@ -675,6 +772,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error closing auction:", error);
       res.status(500).json({ error: "Failed to close auction" });
+    }
+  });
+
+  // Admin: Get capacity for date range
+  app.get("/api/admin/capacity", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 7;
+      const capacityData = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      for (let i = 0; i < days; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(today.getDate() + i);
+        const available = await storage.getAvailableCapacity(checkDate);
+        const slot = await storage.getProductionSlotByDate(checkDate);
+        
+        capacityData.push({
+          date: checkDate.toISOString().split('T')[0],
+          available,
+          reserved: slot?.capacityReserved || 0,
+          total: slot?.capacityTotal || await storage.getSetting("daily_capacity") || 3
+        });
+      }
+      
+      res.json(capacityData);
+    } catch (error) {
+      console.error("Error fetching capacity:", error);
+      res.status(500).json({ error: "Failed to fetch capacity" });
+    }
+  });
+
+  // Admin: Update daily capacity setting
+  app.post("/api/admin/capacity/settings", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { dailyCapacity } = req.body;
+      if (!dailyCapacity || dailyCapacity < 1 || dailyCapacity > 20) {
+        return res.status(400).json({ error: "Daily capacity must be between 1 and 20" });
+      }
+      
+      await storage.setSetting("daily_capacity", dailyCapacity);
+      res.json({ success: true, dailyCapacity });
+    } catch (error) {
+      console.error("Error updating capacity settings:", error);
+      res.status(500).json({ error: "Failed to update capacity settings" });
+    }
+  });
+
+  // Get capacity availability for artwork (public)
+  app.get("/api/capacity/availability", async (req, res) => {
+    try {
+      const nextSlot = await storage.getNextAvailableSlot();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (!nextSlot) {
+        return res.json({ 
+          available: false, 
+          message: "No capacity available in next 30 days" 
+        });
+      }
+      
+      const daysUntilAvailable = Math.ceil((nextSlot.date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      res.json({
+        available: true,
+        daysUntilStart: daysUntilAvailable,
+        startDate: nextSlot.date.toISOString().split('T')[0],
+        queuePosition: nextSlot.position,
+        estimatedCompletion: daysUntilAvailable + 5 // 5 days production time
+      });
+    } catch (error) {
+      console.error("Error checking capacity availability:", error);
+      res.status(500).json({ error: "Failed to check capacity" });
+    }
+  });
+
+  // Update order payment proof (customer)
+  app.patch("/api/orders/:id/payment", async (req, res) => {
+    try {
+      const updateSchema = z.object({
+        paymentMethod: z.enum(["vodafone_cash", "instapay"]).optional(),
+        paymentProof: z.string().optional(),
+        paymentReferenceNumber: z.string().optional()
+      });
+      
+      const validatedData = updateSchema.parse(req.body);
+      const order = await storage.updateOrder(req.params.id, validatedData);
+      
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+      
+      // Notify admin of payment proof upload
+      if (validatedData.paymentProof) {
+        const artwork = await storage.getArtwork(order.artworkId);
+        const adminEmail = process.env.ADMIN_EMAIL || "admin@artinyxus.com";
+        
+        await emailService.sendPaymentProofNotification({
+          adminEmail,
+          orderId: order.id,
+          buyerName: order.buyerName || "Customer",
+          artworkTitle: artwork?.title || "Unknown",
+          referenceNumber: validatedData.paymentReferenceNumber || "N/A"
+        }).catch((err: any) => console.error("Failed to send payment proof notification:", err));
+      }
+      
+      res.json(order);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error updating order payment:", error);
+      res.status(500).json({ error: "Failed to update order payment" });
     }
   });
 
