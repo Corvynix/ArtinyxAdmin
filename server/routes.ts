@@ -445,11 +445,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const estimatedCompletion = new Date(today);
         estimatedCompletion.setDate(today.getDate() + 5); // 5 days production time
         
+        const slot = await storage.getProductionSlotByDate(today);
         order = await storage.updateOrder(req.params.id, {
           status: "confirmed",
           scheduledStartDate: today,
           estimatedCompletionDate: estimatedCompletion,
-          queuePosition: await storage.getProductionSlotByDate(today).then(s => s?.capacityReserved || 1),
+          queuePosition: slot?.capacityReserved || 1,
           invoiceNumber
         });
         

@@ -10,9 +10,12 @@ import { storage } from "./storage";
 
 const getOidcConfig = memoize(
   async () => {
+    if (!process.env.REPL_ID) {
+      throw new Error("REPL_ID not configured. Replit Auth is disabled.");
+    }
     return await client.discovery(
       new URL(process.env.ISSUER_URL ?? "https://replit.com/oidc"),
-      process.env.REPL_ID!
+      process.env.REPL_ID
     );
   },
   { maxAge: 3600 * 1000 }
@@ -67,6 +70,22 @@ export async function setupAuth(app: Express) {
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Skip Replit Auth setup if REPL_ID is not configured (e.g., for Netlify deployment)
+  if (!process.env.REPL_ID) {
+    console.log("Replit Auth not configured (REPL_ID not set). Auth endpoints disabled.");
+    // Set up basic auth routes that return appropriate responses
+    app.get("/api/login", (req, res) => {
+      res.status(501).json({ message: "Authentication not configured. Please set REPL_ID for Replit Auth." });
+    });
+    app.get("/api/callback", (req, res) => {
+      res.status(501).json({ message: "Authentication not configured." });
+    });
+    app.get("/api/logout", (req, res) => {
+      res.status(501).json({ message: "Authentication not configured." });
+    });
+    return;
+  }
 
   const config = await getOidcConfig();
 
@@ -151,6 +170,10 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 
   try {
+    if (!process.env.REPL_ID) {
+      res.status(401).json({ message: "Authentication not configured" });
+      return;
+    }
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
