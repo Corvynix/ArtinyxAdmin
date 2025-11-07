@@ -34,9 +34,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const artworks = await storage.getAllArtworks();
       res.json(artworks);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching artworks:", error);
-      res.status(500).json({ error: "Failed to fetch artworks" });
+      res.status(500).json({ 
+        error: "Failed to fetch artworks",
+        message: error?.message || "Unknown error",
+        details: process.env.NODE_ENV === "development" ? error?.stack : undefined
+      });
     }
   });
 
@@ -260,9 +264,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const eventData = insertAnalyticsEventSchema.parse(req.body);
       const event = await storage.createAnalyticsEvent(eventData);
       res.json(event);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error tracking analytics:", error);
-      res.status(500).json({ error: "Failed to track event" });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid event data", details: error.errors });
+      }
+      res.status(500).json({ 
+        error: "Failed to track event",
+        message: error?.message || "Unknown error",
+        details: process.env.NODE_ENV === "development" ? error?.stack : undefined
+      });
     }
   });
 
