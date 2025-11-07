@@ -75,6 +75,12 @@ function OrderCard({ order, language, artworks }: {
       color: "bg-green-500",
       textColor: "text-green-700 dark:text-green-400"
     },
+    scheduled: {
+      icon: Clock,
+      label: language === "en" ? "Scheduled" : "مجدول",
+      color: "bg-purple-500",
+      textColor: "text-purple-700 dark:text-purple-400"
+    },
     shipped: {
       icon: Truck,
       label: language === "en" ? "Shipped" : "تم الشحن",
