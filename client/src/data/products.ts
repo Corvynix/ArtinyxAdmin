@@ -28,10 +28,66 @@ export const products: Product[] = [
     slug: "pikachu-artwork",
     title: "Pikachu Artwork",
     titleEn: "Pikachu Artwork",
-    shortDescription: "تحفة فنية استثنائية تجسد روح شخصية Pikachu المحبوبة بألوان نابضة بالحياة وتكوين ديناميكي.",
-    shortDescriptionEn: "An exceptional artistic masterpiece that embodies the beloved Pikachu character with vibrant colors and dynamic composition.",
-    story: "هذه التحفة الفنية المذهلة تجسد جوهر شخصية Pikachu المحبوبة بألوان نابضة بالحياة وتكوين ديناميكي. كل قطعة مصنوعة يدويًا بعناية فائقة وتأتي مع شهادة أصالة. مثالية لأي معجب بـ Pokemon يبحث عن قطعة فريدة تضيف جمالًا وطاقة إلى أي مساحة.",
-    storyEn: "This stunning artistic masterpiece captures the essence of the beloved Pikachu character with vibrant colors and dynamic composition. Each piece is meticulously handcrafted with exceptional care and comes with a certificate of authenticity. Perfect for any Pokemon fan looking for a unique piece that adds beauty and energy to any space.",
+ shortDescription: "لوحة فنية محدودة تُعيد فيك الإحساس اللي كان زمان… لما كنا بنجري ورا اللي بنحبه من غير خوف.",
+shortDescriptionEn: "A limited artwork that brings back the fearless feeling we once had—when we used to chase what we love without hesitation.",
+
+story: `
+أنا مكنتش برسم *بيكاتشو*…
+أنا كنت برجع لوقت مكانش في حاجة بتخوفنا.
+
+الوقت اللي كنا بنجري فيه ورا اللي بنحبه
+من غير ما نسأل:
+ده صح؟
+ده غلط؟
+هيودّي لفين؟
+
+كبرنا…
+وبقينا نفكر قبل ما نحس.
+وبقينا نخاف قبل ما نتحرك.
+وبدلّنا الحلم بالراحة.
+
+وأنا برسم هنا… حسّيت نفس الإحساس القديم.
+الإحساس اللي بيقول:
+“إمشي… حتى لو الطريق طويل.”
+
+وعشان كده كتبت:
+**لا تبحث عن الراحة وأنت في عمر السعي.**
+
+اللوحة دي مش للديكور.
+دي للي لسه جواه طفل… لسه بيحلم… صوته واطي شوية.
+
+لو حسّيت إن الكلام ده ليك — فهي ليك.
+`,
+
+storyEn: `
+I wasn’t just painting *Pikachu*…
+I was going back to a time when nothing scared us.
+
+A time when we chased what we loved
+without asking:
+Is it right?
+Is it wrong?
+Where will it lead?
+
+We grew up…
+We started thinking before feeling.
+We got scared before moving.
+We traded dreams for comfort.
+
+While painting this, I felt that old feeling again.
+The one that whispers:
+“Keep going… even if the road is long.”
+
+That’s why I wrote:
+**Do not seek comfort while you are in the age of striving.**
+
+This artwork isn’t decoration.
+It’s for the one who still has a child inside…
+still dreaming… just quiet.
+
+If you felt this — then it’s yours.
+`,
+
     images: [
       "/uploads/artworks/Pickashu/product_1x0.jpg",
       "/uploads/artworks/Pickashu/product_1x1.jpg",
