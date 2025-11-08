@@ -3,7 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import ScarcityBadge from "./ScarcityBadge";
 import PriceDisplay from "./PriceDisplay";
 import WhatsAppButton from "./WhatsAppButton";
 
@@ -143,28 +142,22 @@ export default function ArtworkDetail({
 
                 <PriceDisplay
                   price={currentSize.price}
-                  referencePrice={Math.round(currentSize.price * 1.35)}
-                  language={language}
-                />
-
-                <ScarcityBadge
-                  remaining={currentSize.remaining}
-                  total={currentSize.total}
                   language={language}
                 />
 
                 <WhatsAppButton
+                  artworkId=""
                   artworkTitle={title}
                   size={selectedSize}
                   price={currentSize.price}
                   language={language}
-                  onOrderCreate={() => {}}
                 />
 
-                <p className="text-sm text-muted-foreground text-center" data-testid="text-shipping-note">
+                <p className="text-sm text-muted-foreground text-center flex items-center justify-center gap-1" data-testid="text-shipping-note">
+                  <span className="text-green-600">✓</span>
                   {language === "en" 
-                    ? "Price does not include shipping costs."
-                    : "السعر لا يشمل تكاليف الشحن."}
+                    ? "Price includes shipping cost"
+                    : "السعر يشمل تكلفة الشحن"}
                 </p>
               </>
             )}

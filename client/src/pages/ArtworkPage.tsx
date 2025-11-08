@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PriceDisplay from "@/components/PriceDisplay";
-import ScarcityBadge from "@/components/ScarcityBadge";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import SEO from "@/components/SEO";
 import { getProductBySlug } from "@/data/products";
@@ -121,10 +120,10 @@ export default function ArtworkPage() {
                   {getTypeLabel()}
                 </Badge>
                 <h1 className="font-serif text-4xl font-bold mb-4" data-testid="text-artwork-title">
-                  {product.title}
+                  {language === "en" ? (product.titleEn || product.title) : product.title}
                 </h1>
                 <p className="text-lg leading-relaxed text-muted-foreground" data-testid="text-description">
-                  {product.shortDescription}
+                  {language === "en" ? (product.shortDescriptionEn || product.shortDescription) : product.shortDescription}
                 </p>
               </div>
 
@@ -142,7 +141,12 @@ export default function ArtworkPage() {
                   <SelectContent>
                     {product.sizes.map((size, index) => (
                       <SelectItem key={index} value={index.toString()} data-testid={`option-size-${index}`}>
-                        {size.size} - {size.price.toLocaleString()} EGP {size.remaining > 0 ? `(${size.remaining}/${size.totalCopies})` : ""}
+                        {size.size} - {size.price.toLocaleString()} {language === "en" ? "EGP" : "جنيه"}
+                        {size.remaining > 0 && (
+                          <span className="text-muted-foreground text-xs ml-2">
+                            ({language === "en" ? `${size.remaining} of ${size.totalCopies} available` : `${size.remaining} من ${size.totalCopies} متاحة`})
+                          </span>
+                        )}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -154,21 +158,31 @@ export default function ArtworkPage() {
                   <div className="space-y-4">
                     <PriceDisplay
                       price={currentSize.price}
-                      referencePrice={Math.round(currentSize.price * 1.35)}
                       language={language}
                     />
 
-                    <div>
-                      <ScarcityBadge
-                        remaining={currentSize.remaining}
-                        total={currentSize.totalCopies}
-                        language={language}
-                      />
-                      {currentSize.description && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {currentSize.description}
+                    <div className="p-4 bg-red-50 dark:bg-red-950/30 border-2 border-red-300 dark:border-red-800 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">⚠️</span>
+                        <p className="text-sm font-bold text-red-800 dark:text-red-300">
+                          {language === "en" ? "Limited Edition - Very Scarce!" : "نسخ محدودة جداً - ندرة استثنائية!"}
                         </p>
-                      )}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-red-700 dark:text-red-400">
+                            {language === "en" ? "Available copies:" : "النسخ المتاحة:"}
+                          </span>
+                          <span className="text-lg font-bold text-red-900 dark:text-red-200">
+                            {currentSize.remaining} {language === "en" ? `of ${currentSize.totalCopies}` : `من ${currentSize.totalCopies}`}
+                          </span>
+                        </div>
+                        <p className="text-xs text-red-600 dark:text-red-400 leading-relaxed">
+                          {language === "en" 
+                            ? "⚡ Once sold out, this artwork will never be available again. Secure your copy now!"
+                            : "⚡ بمجرد نفاد الكمية، لن تتوفر هذه اللوحة مرة أخرى أبداً. احجز نسختك الآن!"}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
@@ -178,18 +192,18 @@ export default function ArtworkPage() {
                       <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-1 list-disc list-inside">
                         <li>
                           {language === "en" 
-                            ? "Pre-payment required to confirm reservation"
+                            ? "🔒 Pre-payment required to confirm reservation"
                             : "🔒 الدفع مقدّم لتأكيد الحجز"}
                         </li>
                         <li>
                           {language === "en" 
-                            ? "48-hour full refund period from payment (if you change your mind)"
-                            : "🕒 عندك 48 ساعة كاملة من لحظة الدفع لاسترداد المبلغ بالكامل لو غيرت رأيك"}
+                            ? "🕒 48-hour full refund from delivery (if you change your mind, return as received)"
+                            : "🕒 يمكنك استرجاع المبلغ كاملاً خلال 48 ساعة من الاستلام (بشرط إعادة اللوحة كما استلمتها)"}
                         </li>
                         <li>
                           {language === "en" 
-                            ? "After 48 hours, artwork production begins - no refunds as work is custom-made for you"
-                            : "🎨 بعد الـ 48 ساعة ببدأ تنفيذ اللوحة وما بيكونش فيه استرداد لأن العمل بيتنفّذ مخصوص ليك"}
+                            ? "🎨 Each piece is handcrafted exclusively for you - value and uniqueness guaranteed"
+                            : "🎨 كل قطعة مصنوعة يدوياً خصيصاً لك - القيمة والتفرد مضمونان"}
                         </li>
                       </ul>
                     </div>
@@ -204,8 +218,8 @@ export default function ArtworkPage() {
 
                     <p className="text-sm text-muted-foreground text-center" data-testid="text-shipping-note">
                       {language === "en" 
-                        ? "Price does not include shipping costs."
-                        : "السعر لا يشمل تكاليف الشحن."}
+                        ? "✓ Price includes shipping cost"
+                        : "✓ السعر يشمل تكلفة الشحن"}
                     </p>
                   </div>
                 </>
@@ -217,7 +231,7 @@ export default function ArtworkPage() {
                     {language === "en" ? "The Story" : "القصة"}
                   </h3>
                   <div className={`text-muted-foreground leading-relaxed ${!storyExpanded && "line-clamp-4"}`} data-testid="text-story">
-                    {product.story}
+                    {language === "en" ? (product.storyEn || product.story) : product.story}
                   </div>
                   <button
                     onClick={() => setStoryExpanded(!storyExpanded)}
@@ -230,14 +244,6 @@ export default function ArtworkPage() {
                   </button>
                 </div>
               )}
-
-              <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground italic" data-testid="text-social-proof">
-                  {language === "en" 
-                    ? "🎨 Recently acquired by collectors in Cairo, Alexandria, and Dubai" 
-                    : "🎨 تم الاستحواذ عليها مؤخرًا من قبل جامعين في القاهرة والإسكندرية ودبي"}
-                </p>
-              </div>
             </div>
           </div>
         </div>

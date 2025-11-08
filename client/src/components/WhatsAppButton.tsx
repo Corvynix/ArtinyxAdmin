@@ -39,11 +39,11 @@ export default function WhatsAppButton({
       </Button>
       
       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-        <span className="text-green-600 font-semibold">💰</span>
+        <span className="text-green-600 font-semibold">✓</span>
         <span data-testid="text-guarantee">
           {language === "en" 
-            ? "100% Money-Back Guarantee — 7-Day Trial, No Questions Asked"
-            : "ضمان استرجاع 100% — تجربة 7 أيام بلا أسئلة"}
+            ? "48-hour refund from delivery (return as received)"
+            : "استرجاع خلال 48 ساعة من الاستلام (إرجاع كما استلمتها)"}
         </span>
       </div>
     </div>

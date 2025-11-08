@@ -7,23 +7,19 @@ export default function RefundPolicy() {
   const content = language === "en" ? {
     title: "Refund Policy",
     lastUpdated: "Last updated: November 2025",
-    intro: "At Artinyxus, we want you to be completely satisfied with your purchase. We offer a 7-day money-back guarantee on all artworks.",
+    intro: "At Artinyxus, we want you to be completely satisfied with your purchase. We offer a 48-hour full refund period from the moment of payment.",
     sections: [
       {
-        title: "7-Day Trial Period",
-        content: "You have 7 days from the delivery date to examine your artwork. If you're not completely satisfied, you can return it for a full refund, no questions asked."
+        title: "48-Hour Refund Period",
+        content: "You have 48 hours from the moment of payment to change your mind. If you decide not to proceed, you can request a full refund during this period."
       },
       {
-        title: "Return Conditions",
-        content: "The artwork must be returned in its original condition with all packaging materials. The artwork should not show any signs of damage, alteration, or mounting."
+        title: "After 48 Hours",
+        content: "After the 48-hour period expires, artwork production begins. Since each piece is custom-made specifically for you, refunds are no longer available once production has started."
       },
       {
         title: "Refund Process",
-        content: "To initiate a return, contact us via WhatsApp with your order details. Once we receive and inspect the artwork, we'll process your refund within 5-7 business days to your original payment method."
-      },
-      {
-        title: "Shipping Costs",
-        content: "Original shipping costs are non-refundable. Return shipping costs are the responsibility of the buyer unless the artwork arrived damaged or was sent in error."
+        content: "To request a refund within the 48-hour window, contact us via WhatsApp with your order details. We'll process your refund within 5-7 business days to your original payment method."
       },
       {
         title: "Damaged or Defective Items",
@@ -41,23 +37,19 @@ export default function RefundPolicy() {
   } : {
     title: "سياسة الاسترجاع",
     lastUpdated: "آخر تحديث: نوفمبر 2025",
-    intro: "في Artinyxus، نريدك أن تكون راضيًا تمامًا عن عملية الشراء. نحن نقدم ضمان استرجاع المال لمدة 7 أيام على جميع الأعمال الفنية.",
+    intro: "في Artinyxus، نريدك أن تكون راضيًا تمامًا عن عملية الشراء. عندك 48 ساعة كاملة من لحظة الدفع لاسترداد المبلغ بالكامل.",
     sections: [
       {
-        title: "فترة تجريبية لمدة 7 أيام",
-        content: "لديك 7 أيام من تاريخ التسليم لفحص عملك الفني. إذا لم تكن راضيًا تمامًا، يمكنك إرجاعه لاسترداد كامل المبلغ، بدون أسئلة."
+        title: "فترة استرداد 48 ساعة",
+        content: "عندك 48 ساعة كاملة من لحظة الدفع لو غيرت رأيك. لو قررت إنك مش عايز تكمل، تقدر تطلب استرداد كامل المبلغ خلال الفترة دي."
       },
       {
-        title: "شروط الإرجاع",
-        content: "يجب إرجاع العمل الفني في حالته الأصلية مع جميع مواد التعبئة. يجب ألا يظهر العمل الفني أي علامات تلف أو تعديل أو تثبيت."
+        title: "بعد الـ 48 ساعة",
+        content: "بعد انتهاء فترة الـ 48 ساعة، ببدأ تنفيذ اللوحة. لأن كل قطعة بتتعمل مخصوص ليك، ما بيكونش فيه استرداد بعد ما يبدأ التنفيذ."
       },
       {
         title: "عملية الاسترداد",
-        content: "لبدء الإرجاع، اتصل بنا عبر الواتساب مع تفاصيل طلبك. بمجرد استلام العمل الفني وفحصه، سنقوم بمعالجة استردادك خلال 5-7 أيام عمل إلى طريقة الدفع الأصلية."
-      },
-      {
-        title: "تكاليف الشحن",
-        content: "تكاليف الشحن الأصلية غير قابلة للاسترداد. تكاليف شحن الإرجاع هي مسؤولية المشتري ما لم يصل العمل الفني تالفًا أو تم إرساله بالخطأ."
+        content: "لطلب استرداد خلال فترة الـ 48 ساعة، اتصل بنا عبر الواتساب مع تفاصيل طلبك. هنعالج الاسترداد خلال 5-7 أيام عمل لطريقة الدفع الأصلية."
       },
       {
         title: "العناصر التالفة أو المعيبة",
