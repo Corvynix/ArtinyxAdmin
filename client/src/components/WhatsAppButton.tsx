@@ -2,29 +2,27 @@ import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
 
 interface WhatsAppButtonProps {
+  artworkId: string;
   artworkTitle: string;
   size: string;
   price: number;
   language?: "en" | "ar";
-  onOrderCreate?: () => void;
 }
+
+const WHATSAPP_NUMBER = "+201551498838";
 
 export default function WhatsAppButton({
   artworkTitle,
   size,
   price,
-  language = "en",
-  onOrderCreate
+  language = "ar"
 }: WhatsAppButtonProps) {
   const handleClick = () => {
-    // TODO: remove mock functionality - call create-order API endpoint
-    onOrderCreate?.();
+    const message = language === "ar"
+      ? `مرحباً، أريد طلب: ${artworkTitle}\nالمقاس: ${size}\nالسعر: ${price.toLocaleString()} جنيه`
+      : `Hello, I would like to order: ${artworkTitle}\nSize: ${size}\nPrice: ${price.toLocaleString()} EGP`;
     
-    const message = language === "en"
-      ? `Hello, I would like to order "${artworkTitle}" (Size: ${size}) - ${price} EGP. Please confirm availability.`
-      : `مرحباً، أود طلب لوحة "${artworkTitle}" (المقاس: ${size}) — ${price} EGP. من فضلك أكد التوفر.`;
-    
-    const whatsappUrl = `https://wa.me/201234567890?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
   };
 

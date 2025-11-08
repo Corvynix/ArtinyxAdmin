@@ -36,7 +36,21 @@ export default function AdminArtworks() {
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
-      setTimeout(() => { window.location.href = "/api/login"; }, 500);
+      if (import.meta.env.DEV) {
+        // In development, try to authenticate with API key
+        fetch("/api/auth/user", {
+          headers: { "x-admin-api-key": "dev-admin-key-12345" },
+          credentials: "include"
+        }).then(() => window.location.reload()).catch(() => {
+          toast({
+            title: "Database Connection Required",
+            description: "Please check your DATABASE_URL in .env file",
+            variant: "destructive",
+          });
+        });
+      } else {
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+      }
     } else if (!authLoading && isAuthenticated && !isAdmin) {
       toast({
         title: "Access Denied",
@@ -103,7 +117,21 @@ function AdminArtworksContent({ language, setLanguage }: { language: "en" | "ar"
           description: "You are logged out. Logging in again...",
           variant: "destructive",
         });
+        if (import.meta.env.DEV) {
+        // In development, try to authenticate with API key
+        fetch("/api/auth/user", {
+          headers: { "x-admin-api-key": "dev-admin-key-12345" },
+          credentials: "include"
+        }).then(() => window.location.reload()).catch(() => {
+          toast({
+            title: "Database Connection Required",
+            description: "Please check your DATABASE_URL in .env file",
+            variant: "destructive",
+          });
+        });
+      } else {
         setTimeout(() => { window.location.href = "/api/login"; }, 500);
+      }
         return;
       }
       toast({ title: "Error", description: "Failed to update artwork", variant: "destructive" });
@@ -239,15 +267,46 @@ function AdminArtworksContent({ language, setLanguage }: { language: "en" | "ar"
                       Sizes: {Object.keys(artwork.sizes).join(", ")}
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(artwork)}
-                    data-testid={`button-edit-${artwork.id}`}
-                  >
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={artwork.status === "available" ? "destructive" : "default"}
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await apiRequest("PATCH", `/api/admin/artworks/${artwork.id}`, {
+                            status: artwork.status === "available" ? "coming_soon" : "available"
+                          });
+                          queryClient.invalidateQueries({ queryKey: ["/api/artworks"] });
+                          toast({
+                            title: "Success",
+                            description: artwork.status === "available" 
+                              ? "Sales paused" 
+                              : "Sales resumed"
+                          });
+                        } catch (error: any) {
+                          toast({
+                            title: "Error",
+                            description: error.message,
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                      data-testid={`button-toggle-sales-${artwork.id}`}
+                    >
+                      {artwork.status === "available" 
+                        ? (language === "en" ? "Pause Sales" : "إيقاف المبيعات")
+                        : (language === "en" ? "Resume Sales" : "استئناف المبيعات")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(artwork)}
+                      data-testid={`button-edit-${artwork.id}`}
+                    >
+                      <Edit2 className="w-4 h-4 mr-2" />
+                      {language === "en" ? "Edit" : "تعديل"}
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}

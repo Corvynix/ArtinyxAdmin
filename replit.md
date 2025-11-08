@@ -14,11 +14,18 @@ Artinyxus is a luxury e-commerce platform for selling original, hand-crafted art
 **Tech Stack:**
 - Frontend: React + TypeScript + Vite
 - Backend: Express.js + Node.js
-- Database: PostgreSQL (Neon serverless)
+- Database: PostgreSQL (Replit-hosted)
 - ORM: Drizzle
 - UI Components: Shadcn/ui + Tailwind CSS
 - Auth: Replit Auth (OIDC-based)
 - State Management: TanStack Query
+
+**Recent Changes (November 7, 2025):**
+- ✅ Migrated from Supabase to Replit PostgreSQL database
+- ✅ Database schema successfully pushed with all tables created
+- ✅ Stock hold restoration endpoint active at `/api/restore-holds`
+- ✅ Hourly scheduled job running to auto-restore expired holds
+- ✅ Application fully functional and ready for development
 
 ## User Preferences
 

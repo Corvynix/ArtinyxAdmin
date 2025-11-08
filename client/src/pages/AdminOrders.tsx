@@ -22,7 +22,20 @@ export default function AdminOrders() {
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
-      setTimeout(() => { window.location.href = "/api/login"; }, 500);
+      if (import.meta.env.DEV) {
+        fetch("/api/auth/user", {
+          headers: { "x-admin-api-key": "dev-admin-key-12345" },
+          credentials: "include"
+        }).then(() => window.location.reload()).catch(() => {
+          toast({
+            title: "Database Connection Required",
+            description: "Please check your DATABASE_URL in .env file",
+            variant: "destructive",
+          });
+        });
+      } else {
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+      }
     } else if (!authLoading && isAuthenticated && !isAdmin) {
       toast({
         title: "Access Denied",
@@ -76,7 +89,20 @@ function AdminOrdersContent({ language, setLanguage }: { language: "en" | "ar"; 
           description: "You are logged out. Logging in again...",
           variant: "destructive",
         });
+        if (import.meta.env.DEV) {
+        fetch("/api/auth/user", {
+          headers: { "x-admin-api-key": "dev-admin-key-12345" },
+          credentials: "include"
+        }).then(() => window.location.reload()).catch(() => {
+          toast({
+            title: "Database Connection Required",
+            description: "Please check your DATABASE_URL in .env file",
+            variant: "destructive",
+          });
+        });
+      } else {
         setTimeout(() => { window.location.href = "/api/login"; }, 500);
+      }
         return;
       }
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -103,9 +129,20 @@ function AdminOrdersContent({ language, setLanguage }: { language: "en" | "ar"; 
       
       <div className="pt-24 px-4 pb-20">
         <div className="max-w-7xl mx-auto">
-          <h1 className="font-serif text-4xl font-bold mb-8" data-testid="text-page-title">
-            Orders Management
-          </h1>
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="font-serif text-4xl font-bold" data-testid="text-page-title">
+              {language === "en" ? "Orders Management" : "إدارة الطلبيات"}
+            </h1>
+            <Button
+              onClick={() => {
+                window.open("/api/admin/orders/export", "_blank");
+              }}
+              variant="outline"
+              data-testid="button-export-csv"
+            >
+              {language === "en" ? "Export CSV" : "تصدير CSV"}
+            </Button>
+          </div>
 
           <div className="grid gap-4">
             {orders.map((order) => (

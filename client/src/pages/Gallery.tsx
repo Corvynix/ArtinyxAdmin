@@ -1,65 +1,40 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import Navbar from "@/components/Navbar";
-import ArtworkGallery from "@/components/ArtworkGallery";
 import SEO from "@/components/SEO";
-import { artworksAPI } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Filter } from "lucide-react";
+import { getAllProducts } from "@/data/products";
 
 export default function Gallery() {
   const [language, setLanguage] = useState<"en" | "ar">("en");
-  const [typeFilter, setTypeFilter] = useState<"all" | "unique" | "limited" | "auction">("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
+  const [typeFilter, setTypeFilter] = useState<"all" | "unique" | "limited">("all");
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000]);
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data: allArtworks = [], isLoading } = useQuery({
-    queryKey: ["/api/artworks"],
-    queryFn: artworksAPI.getAll
-  });
+  const allProducts = getAllProducts();
 
-  const categories = Array.from(new Set(allArtworks.map(a => (a as any).category).filter(Boolean)));
-
-  const filteredArtworks = allArtworks
-    .filter(a => a.status === "available")
-    .filter(a => typeFilter === "all" || a.type === typeFilter)
-    .filter(a => {
-      if (categoryFilter === "all") return true;
-      return (a as any).category === categoryFilter;
+  const filteredProducts = allProducts
+    .filter(p => p.status === "available")
+    .filter(p => typeFilter === "all" || p.type === typeFilter)
+    .filter(p => {
+      const minPrice = Math.min(...p.sizes.map(s => s.price));
+      const maxPrice = Math.max(...p.sizes.map(s => s.price));
+      return minPrice >= priceRange[0] && maxPrice <= priceRange[1];
     })
-    .filter(a => {
-      const prices = Object.values(a.sizes).map(s => s.price_cents);
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-      return minPrice >= priceRange[0] * 100 && maxPrice <= priceRange[1] * 100;
-    })
-    .map(a => ({
-      id: a.id,
-      title: a.title,
-      image: a.images[0] || "",
-      priceFrom: Math.min(...Object.values(a.sizes).map(s => s.price_cents)) / 100,
-      type: a.type,
-      status: a.status
+    .map(p => ({
+      id: p.id,
+      title: p.title,
+      image: p.images[0] || "",
+      priceFrom: Math.min(...p.sizes.map(s => s.price)),
+      type: p.type,
+      status: p.status,
+      slug: p.slug
     }));
 
-  const handleArtworkClick = (id: string) => {
-    const artwork = allArtworks.find(a => a.id === id);
-    if (artwork) {
-      window.location.href = `/artworks/${artwork.slug}`;
-    }
+  const handleProductClick = (slug: string) => {
+    window.location.href = `/artworks/${slug}`;
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-2xl font-serif text-muted-foreground">Loading...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,7 +64,7 @@ export default function Gallery() {
           </div>
 
           {showFilters && (
-            <div className="bg-card border border-border rounded-lg p-6 mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-card border border-border rounded-lg p-6 mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium mb-2">
                   {language === "en" ? "Type" : "النوع"}
@@ -108,30 +83,6 @@ export default function Gallery() {
                     <SelectItem value="limited">
                       {language === "en" ? "Limited Edition" : "طبعة محدودة"}
                     </SelectItem>
-                    <SelectItem value="auction">
-                      {language === "en" ? "Auctions" : "مزادات"}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  {language === "en" ? "Category" : "الفئة"}
-                </label>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger data-testid="select-category-filter">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      {language === "en" ? "All Categories" : "جميع الفئات"}
-                    </SelectItem>
-                    {categories.map(cat => (
-                      <SelectItem key={cat} value={cat || ""}>
-                        {cat}
-                      </SelectItem>
-                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -142,8 +93,8 @@ export default function Gallery() {
                 </label>
                 <Slider
                   min={0}
-                  max={100000}
-                  step={1000}
+                  max={2000}
+                  step={50}
                   value={priceRange}
                   onValueChange={(value) => setPriceRange(value as [number, number])}
                   className="mt-4"
@@ -153,29 +104,28 @@ export default function Gallery() {
             </div>
           )}
 
-          {filteredArtworks.length > 0 ? (
+          {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredArtworks.map((artwork) => (
-                <div key={artwork.id} onClick={() => handleArtworkClick(artwork.id)}>
+              {filteredProducts.map((product) => (
+                <div key={product.id} onClick={() => handleProductClick(product.slug)}>
                   <div className="overflow-hidden cursor-pointer transition-transform duration-250 hover:scale-[1.03]">
                     <div className="relative aspect-square bg-card border border-card-border rounded-lg overflow-hidden">
                       <img
-                        src={artwork.image}
-                        alt={artwork.title}
+                        src={product.image}
+                        alt={product.title}
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute top-3 right-3">
                         <span className="gold-metallic-bg border-2 border-yellow-600/40 font-semibold px-3 py-1 rounded-md text-sm">
-                          {artwork.type === "unique" ? (language === "en" ? "Unique" : "فريدة") :
-                           artwork.type === "limited" ? (language === "en" ? "Limited Edition" : "طبعة محدودة") :
-                           (language === "en" ? "Auction" : "مزاد")}
+                          {product.type === "unique" ? (language === "en" ? "Unique" : "فريدة") :
+                           (language === "en" ? "Limited Edition" : "طبعة محدودة")}
                         </span>
                       </div>
                     </div>
                     <div className="p-4">
-                      <h3 className="font-serif text-xl font-semibold mb-2">{artwork.title}</h3>
+                      <h3 className="font-serif text-xl font-semibold mb-2">{product.title}</h3>
                       <p className="text-muted-foreground">
-                        {language === "en" ? "from" : "من"} <span className="gold-metallic font-semibold text-lg">{artwork.priceFrom.toLocaleString()} EGP</span>
+                        {language === "en" ? "from" : "من"} <span className="gold-metallic font-semibold text-lg">{product.priceFrom.toLocaleString()} EGP</span>
                       </p>
                     </div>
                   </div>

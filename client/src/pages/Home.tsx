@@ -1,65 +1,33 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import ArtworkGallery from "@/components/ArtworkGallery";
 import SEO from "@/components/SEO";
-import { artworksAPI, analyticsAPI } from "@/lib/api";
+import { getAllProducts } from "@/data/products";
+import babyShirtImage from "@assets/stock_images/cute_baby_wearing_wh_02f52a93.jpg";
+import hoodieImage from "@assets/stock_images/black_hoodie_back_vi_c895002e.jpg";
+import toteBagImage from "@assets/stock_images/stylish_tote_bag_can_2662fc96.jpg";
 
 export default function Home() {
   const [language, setLanguage] = useState<"en" | "ar">("en");
 
-  const { data: allArtworks = [], isLoading } = useQuery({
-    queryKey: ["/api/artworks"],
-    queryFn: artworksAPI.getAll
-  });
+  const allProducts = getAllProducts();
 
-  const availableArtworks = allArtworks
-    .filter(a => a.status === "available")
-    .map(a => ({
-      id: a.id,
-      title: a.title,
-      image: a.images[0] || "",
-      priceFrom: Math.min(...Object.values(a.sizes).map(s => s.price_cents)) / 100,
-      type: a.type,
-      status: "available" as const
+  const availableProducts = allProducts
+    .filter(p => p.status === "available")
+    .map(p => ({
+      id: p.id,
+      title: p.title,
+      image: p.images[0] || "",
+      priceFrom: Math.min(...p.sizes.map(s => s.price)),
+      type: p.type,
+      status: "available" as const,
+      slug: p.slug
     }));
 
-  const comingSoonArtworks = allArtworks
-    .filter(a => a.status === "coming_soon")
-    .map(a => ({
-      id: a.id,
-      title: a.title,
-      image: a.images[0] || "",
-      priceFrom: Math.min(...Object.values(a.sizes).map(s => s.price_cents)) / 100,
-      type: a.type,
-      status: "coming_soon" as const
-    }));
-
-  useEffect(() => {
-    // Track page view
-    analyticsAPI.track({
-      eventType: "page_view",
-      meta: { page: "home" }
-    });
-  }, []);
-
-  const handleArtworkClick = (id: string) => {
-    const artwork = allArtworks.find(a => a.id === id);
-    if (artwork) {
-      window.location.href = `/artworks/${artwork.slug}`;
-    }
+  const handleProductClick = (slug: string) => {
+    window.location.href = `/artworks/${slug}`;
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-2xl font-serif text-muted-foreground">Loading...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen">
@@ -72,21 +40,17 @@ export default function Home() {
       <Navbar currentLang={language} onLanguageChange={setLanguage} />
       <Hero language={language} />
       
-      {availableArtworks.length > 0 && (
+      {availableProducts.length > 0 && (
         <ArtworkGallery
-          artworks={availableArtworks}
+          artworks={availableProducts}
           title={language === "en" ? "Available Now" : "متاح الآن"}
           language={language}
-          onArtworkClick={handleArtworkClick}
-        />
-      )}
-      
-      {comingSoonArtworks.length > 0 && (
-        <ArtworkGallery
-          artworks={comingSoonArtworks}
-          title={language === "en" ? "Coming Soon" : "قريباً"}
-          language={language}
-          onArtworkClick={handleArtworkClick}
+          onArtworkClick={(id) => {
+            const product = allProducts.find(p => p.id === id);
+            if (product) {
+              handleProductClick(product.slug);
+            }
+          }}
         />
       )}
 
@@ -176,58 +140,73 @@ export default function Home() {
               : "نقوم بتوسيع مجموعتنا بفن يمكن ارتداؤه ومنتجات نمط الحياة."}
           </p>
           <div className="grid md:grid-cols-3 gap-8 mb-12">
-            <div className="bg-background border border-border rounded-lg p-6 hover:border-primary transition-all">
-              <div className="bg-muted rounded-lg h-48 flex items-center justify-center mb-4">
-                <svg className="w-24 h-24 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
+            <div className="bg-background border border-border rounded-lg overflow-hidden hover:border-primary transition-all group">
+              <div className="h-64 overflow-hidden">
+                <img 
+                  src={hoodieImage} 
+                  alt="Black hoodie with exclusive artwork" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  data-testid="img-hoodie"
+                />
               </div>
-              <h3 className="text-2xl font-semibold mb-2 text-foreground" data-testid="text-hoodies">
-                {language === "en" ? "Hoodies" : "سويتشيرت"}
-              </h3>
-              <p className="text-muted-foreground">
-                {language === "en" 
-                  ? "Premium cotton hoodies featuring exclusive artwork designs"
-                  : "سويتشيرت قطني فاخر يحمل تصميمات فنية حصرية"}
-              </p>
-              <div className="mt-4 inline-block bg-primary/20 text-primary px-4 py-1 rounded-full text-sm font-medium" data-testid="badge-coming-soon">
-                {language === "en" ? "Coming Soon" : "قريباً"}
-              </div>
-            </div>
-            <div className="bg-background border border-border rounded-lg p-6 hover:border-primary transition-all">
-              <div className="bg-muted rounded-lg h-48 flex items-center justify-center mb-4">
-                <svg className="w-24 h-24 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-semibold mb-2 text-foreground" data-testid="text-baby-shirts">
-                {language === "en" ? "Baby Shirts" : "قمصان أطفال"}
-              </h3>
-              <p className="text-muted-foreground">
-                {language === "en" 
-                  ? "Soft, comfortable baby clothing with adorable art prints"
-                  : "ملابس أطفال ناعمة ومريحة مع طباعات فنية جميلة"}
-              </p>
-              <div className="mt-4 inline-block bg-primary/20 text-primary px-4 py-1 rounded-full text-sm font-medium" data-testid="badge-coming-soon-2">
-                {language === "en" ? "Coming Soon" : "قريباً"}
+              <div className="p-6">
+                <h3 className="text-2xl font-semibold mb-2 text-foreground" data-testid="text-hoodies">
+                  {language === "en" ? "Hoodies" : "سويتشيرت"}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {language === "en" 
+                    ? "Premium cotton hoodies featuring exclusive artwork designs"
+                    : "سويتشيرت قطني فاخر يحمل تصميمات فنية حصرية"}
+                </p>
+                <div className="inline-block bg-primary/20 text-primary px-4 py-1 rounded-full text-sm font-medium" data-testid="badge-coming-soon">
+                  {language === "en" ? "Coming Soon" : "قريباً"}
+                </div>
               </div>
             </div>
-            <div className="bg-background border border-border rounded-lg p-6 hover:border-primary transition-all">
-              <div className="bg-muted rounded-lg h-48 flex items-center justify-center mb-4">
-                <svg className="w-24 h-24 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
+            <div className="bg-background border border-border rounded-lg overflow-hidden hover:border-primary transition-all group">
+              <div className="h-64 overflow-hidden">
+                <img 
+                  src={babyShirtImage} 
+                  alt="Cute baby wearing comfortable shirt" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  data-testid="img-baby-shirt"
+                />
               </div>
-              <h3 className="text-2xl font-semibold mb-2 text-foreground" data-testid="text-accessories">
-                {language === "en" ? "More Products" : "منتجات أخرى"}
-              </h3>
-              <p className="text-muted-foreground">
-                {language === "en" 
-                  ? "T-shirts, tote bags, phone cases, and more"
-                  : "تيشيرتات، حقائب، أغطية هواتف، والمزيد"}
-              </p>
-              <div className="mt-4 inline-block bg-primary/20 text-primary px-4 py-1 rounded-full text-sm font-medium" data-testid="badge-coming-soon-3">
-                {language === "en" ? "Coming Soon" : "قريباً"}
+              <div className="p-6">
+                <h3 className="text-2xl font-semibold mb-2 text-foreground" data-testid="text-baby-shirts">
+                  {language === "en" ? "Baby Shirts" : "قمصان أطفال"}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {language === "en" 
+                    ? "Soft, comfortable baby clothing with adorable art prints"
+                    : "ملابس أطفال ناعمة ومريحة مع طباعات فنية جميلة"}
+                </p>
+                <div className="inline-block bg-primary/20 text-primary px-4 py-1 rounded-full text-sm font-medium" data-testid="badge-coming-soon-2">
+                  {language === "en" ? "Coming Soon" : "قريباً"}
+                </div>
+              </div>
+            </div>
+            <div className="bg-background border border-border rounded-lg overflow-hidden hover:border-primary transition-all group">
+              <div className="h-64 overflow-hidden">
+                <img 
+                  src={toteBagImage} 
+                  alt="Stylish tote bag with art prints" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  data-testid="img-tote-bag"
+                />
+              </div>
+              <div className="p-6">
+                <h3 className="text-2xl font-semibold mb-2 text-foreground" data-testid="text-accessories">
+                  {language === "en" ? "Mobile Covers & More" : "أغطية الهواتف وأكثر"}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {language === "en" 
+                    ? "Mobile covers and more featuring original artwork prints"
+                    : "أغطية الهواتف وأكثر تحمل طباعات فنية أصلية"}
+                </p>
+                <div className="inline-block bg-primary/20 text-primary px-4 py-1 rounded-full text-sm font-medium" data-testid="badge-coming-soon-3">
+                  {language === "en" ? "Coming Soon" : "قريباً"}
+                </div>
               </div>
             </div>
           </div>
@@ -247,13 +226,13 @@ export default function Home() {
               : "© 2025 Artinyxus. جميع الحقوق محفوظة."}
           </p>
           <div className="flex justify-center gap-6 text-sm">
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors" data-testid="link-privacy">
+            <a href="/privacy-policy" className="text-muted-foreground hover:text-primary transition-colors" data-testid="link-privacy">
               {language === "en" ? "Privacy Policy" : "سياسة الخصوصية"}
             </a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors" data-testid="link-refund">
+            <a href="/refund-policy" className="text-muted-foreground hover:text-primary transition-colors" data-testid="link-refund">
               {language === "en" ? "Refund Policy" : "سياسة الاسترجاع"}
             </a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors" data-testid="link-terms">
+            <a href="/terms" className="text-muted-foreground hover:text-primary transition-colors" data-testid="link-terms">
               {language === "en" ? "Terms of Service" : "شروط الخدمة"}
             </a>
           </div>

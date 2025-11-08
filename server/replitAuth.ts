@@ -76,13 +76,26 @@ export async function setupAuth(app: Express) {
     console.log("Replit Auth not configured (REPL_ID not set). Auth endpoints disabled.");
     // Set up basic auth routes that return appropriate responses
     app.get("/api/login", (req, res) => {
-      res.status(501).json({ message: "Authentication not configured. Please set REPL_ID for Replit Auth." });
+      if (process.env.NODE_ENV === "development") {
+        // In development, redirect to home or show a message
+        res.status(200).json({ 
+          message: "Development mode: Use admin API key for authentication. Navigate to /admin to access admin panel.",
+          redirect: "/"
+        });
+      } else {
+        res.status(501).json({ message: "Authentication not configured. Please set REPL_ID for Replit Auth." });
+      }
     });
     app.get("/api/callback", (req, res) => {
       res.status(501).json({ message: "Authentication not configured." });
     });
     app.get("/api/logout", (req, res) => {
-      res.status(501).json({ message: "Authentication not configured." });
+      if (process.env.NODE_ENV === "development") {
+        // In development, just clear any session and redirect
+        res.status(200).json({ message: "Logged out (dev mode)", redirect: "/" });
+      } else {
+        res.status(501).json({ message: "Authentication not configured." });
+      }
     });
     return;
   }

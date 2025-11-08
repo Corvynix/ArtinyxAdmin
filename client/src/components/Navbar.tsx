@@ -1,8 +1,6 @@
 import { Link } from "wouter";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
-import { User, LogOut, Settings } from "lucide-react";
 import logoImage from "@assets/Logo_1762382111378.png";
 
 interface NavbarProps {
@@ -12,7 +10,6 @@ interface NavbarProps {
 
 export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
-  const { isAuthenticated, isAdmin, user } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -28,8 +25,8 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
   };
 
   const navLinks = currentLang === "en"
-    ? ["Home", "Gallery", "Auctions", "Wall of Fame", "About", "Contact"]
-    : ["الرئيسية", "المعرض", "المزادات", "جدار الشرف", "من نحن", "اتصل بنا"];
+    ? ["Home", "Gallery", "About", "Contact"]
+    : ["الرئيسية", "المعرض", "من نحن", "اتصل بنا"];
 
   return (
     <nav
@@ -72,40 +69,6 @@ export default function Navbar({ currentLang = "en", onLanguageChange }: NavbarP
           >
             {currentLang === "en" ? "🇪🇬" : "🇺🇸"}
           </button>
-          
-          {isAuthenticated ? (
-            <>
-              {isAdmin && (
-                <Link href="/admin/artworks">
-                  <Button variant="outline" size="sm" className="border-white text-white hover:bg-white hover:text-black" data-testid="button-admin">
-                    <Settings className="w-4 h-4 mr-2" />
-                    Admin
-                  </Button>
-                </Link>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.location.href = "/api/logout"}
-                className="border-white text-white hover:bg-white hover:text-black"
-                data-testid="button-logout"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.location.href = "/api/login"}
-              className="border-white text-white hover:bg-white hover:text-black"
-              data-testid="button-login"
-            >
-              <User className="w-4 h-4 mr-2" />
-              Login
-            </Button>
-          )}
           
           <Button
             onClick={() => {

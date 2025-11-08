@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, MessageCircle, Clock, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import ScarcityBadge from "@/components/ScarcityBadge";
 import PriceDisplay from "@/components/PriceDisplay";
+import ScarcityBadge from "@/components/ScarcityBadge";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import SEO from "@/components/SEO";
-import { artworksAPI, ordersAPI, analyticsAPI } from "@/lib/api";
+import { getProductBySlug } from "@/data/products";
 
 export default function ArtworkPage() {
   const [, params] = useRoute("/artworks/:slug");
@@ -19,74 +19,28 @@ export default function ArtworkPage() {
   const [language, setLanguage] = useState<"en" | "ar">("en");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [storyExpanded, setStoryExpanded] = useState(false);
-  const [selectedSizeKey, setSelectedSizeKey] = useState("");
+  const [selectedSizeIndex, setSelectedSizeIndex] = useState(0);
 
-  const { data: artwork, isLoading } = useQuery({
-    queryKey: ["/api/artworks", slug],
-    queryFn: () => artworksAPI.getBySlug(slug),
-    enabled: !!slug
-  });
-
-  const { data: capacityInfo } = useQuery({
-    queryKey: ["/api/capacity/availability"],
-    queryFn: async () => {
-      const response = await fetch("/api/capacity/availability");
-      if (!response.ok) return null;
-      return response.json();
-    }
-  });
-
-  const createOrderMutation = useMutation({
-    mutationFn: ordersAPI.create,
-    onSuccess: (data) => {
-      // Track analytics
-      analyticsAPI.track({
-        eventType: "order_created",
-        artworkId: artwork?.id,
-        meta: { size: selectedSizeKey }
-      });
-      
-      // Open WhatsApp
-      if (data.whatsappUrl) {
-        window.open(data.whatsappUrl, "_blank");
-      }
-    }
-  });
+  const product = getProductBySlug(slug);
 
   useEffect(() => {
-    if (artwork) {
-      const sizes = Object.keys(artwork.sizes);
-      if (sizes.length > 0 && !selectedSizeKey) {
-        setSelectedSizeKey(sizes[0]);
-      }
-      
-      // Track page view
-      analyticsAPI.track({
-        eventType: "page_view",
-        artworkId: artwork.id
-      });
+    if (product && product.sizes.length > 0) {
+      setSelectedSizeIndex(0);
     }
-  }, [artwork]);
+  }, [product]);
 
-  if (isLoading) {
+  if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-2xl font-serif text-muted-foreground">Loading...</div>
+        <div className="text-2xl font-serif text-muted-foreground">
+          {language === "en" ? "Product not found" : "المنتج غير موجود"}
+        </div>
       </div>
     );
   }
 
-  if (!artwork) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-2xl font-serif text-muted-foreground">Artwork not found</div>
-      </div>
-    );
-  }
-
-  const sizes = Object.entries(artwork.sizes);
-  const currentSize = selectedSizeKey ? artwork.sizes[selectedSizeKey] : sizes[0]?.[1];
-  const images = artwork.images;
+  const currentSize = product.sizes[selectedSizeIndex];
+  const images = product.images;
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
@@ -98,33 +52,17 @@ export default function ArtworkPage() {
 
   const getTypeLabel = () => {
     if (language === "en") {
-      return artwork.type === "unique" ? "Unique" : artwork.type === "limited" ? "Limited Edition" : "Live Auction";
+      return product.type === "unique" ? "Unique" : "Limited Edition";
     }
-    return artwork.type === "unique" ? "فريدة" : artwork.type === "limited" ? "طبعة محدودة" : "مزاد مباشر";
-  };
-
-  const handleWhatsAppOrder = () => {
-    if (!currentSize) return;
-    
-    createOrderMutation.mutate({
-      artworkId: artwork.id,
-      size: selectedSizeKey,
-      priceCents: currentSize.price_cents
-    });
-
-    analyticsAPI.track({
-      eventType: "whatsapp_click",
-      artworkId: artwork.id,
-      meta: { size: selectedSizeKey }
-    });
+    return product.type === "unique" ? "فريدة" : "طبعة محدودة";
   };
 
   return (
     <div className="min-h-screen bg-background">
       <SEO
-        title={artwork.title}
-        description={artwork.shortDescription || `${artwork.title} - Limited edition canvas art at Artinyxus. ${artwork.type === "unique" ? "Unique piece" : "Limited copies available"}. Order via WhatsApp today.`}
-        ogImage={artwork.images[0]}
+        title={product.title}
+        description={product.shortDescription || `${product.title} - Limited edition canvas art at Artinyxus. Order via WhatsApp today.`}
+        ogImage={product.images[0]}
         ogType="product"
       />
       <Navbar currentLang={language} onLanguageChange={setLanguage} />
@@ -137,7 +75,7 @@ export default function ArtworkPage() {
                 <div className="relative aspect-square bg-muted">
                   <img
                     src={images[currentImageIndex]}
-                    alt={`${artwork.title} - ${currentImageIndex + 1}`}
+                    alt={`${product.title} - ${currentImageIndex + 1}`}
                     className="w-full h-full object-cover"
                     data-testid="img-artwork-main"
                   />
@@ -183,111 +121,103 @@ export default function ArtworkPage() {
                   {getTypeLabel()}
                 </Badge>
                 <h1 className="font-serif text-4xl font-bold mb-4" data-testid="text-artwork-title">
-                  {artwork.title}
+                  {product.title}
                 </h1>
                 <p className="text-lg leading-relaxed text-muted-foreground" data-testid="text-description">
-                  {artwork.shortDescription}
+                  {product.shortDescription}
                 </p>
               </div>
 
-              {artwork.type !== "auction" && (
+              <div>
+                <label className="block text-sm font-medium mb-2" data-testid="label-size">
+                  {language === "en" ? "Select Size" : "اختر المقاس"}
+                </label>
+                <Select 
+                  value={selectedSizeIndex.toString()} 
+                  onValueChange={(value) => setSelectedSizeIndex(parseInt(value))}
+                >
+                  <SelectTrigger data-testid="select-size">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {product.sizes.map((size, index) => (
+                      <SelectItem key={index} value={index.toString()} data-testid={`option-size-${index}`}>
+                        {size.size} - {size.price.toLocaleString()} EGP {size.remaining > 0 ? `(${size.remaining}/${size.totalCopies})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {currentSize && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium mb-2" data-testid="label-size">
-                      {language === "en" ? "Select Size" : "اختر المقاس"}
-                    </label>
-                    <Select value={selectedSizeKey} onValueChange={setSelectedSizeKey}>
-                      <SelectTrigger data-testid="select-size">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sizes.map(([key, size]) => (
-                          <SelectItem key={key} value={key} data-testid={`option-size-${key}`}>
-                            {key} - {(size.price_cents / 100).toLocaleString()} EGP
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <div className="space-y-4">
+                    <PriceDisplay
+                      price={currentSize.price}
+                      referencePrice={Math.round(currentSize.price * 1.35)}
+                      language={language}
+                    />
 
-                  {currentSize && (
-                    <>
-                      <PriceDisplay
-                        price={currentSize.price_cents / 100}
-                        referencePrice={Math.round((currentSize.price_cents / 100) * 1.35)}
-                        language={language}
-                      />
-
+                    <div>
                       <ScarcityBadge
                         remaining={currentSize.remaining}
-                        total={currentSize.total_copies}
+                        total={currentSize.totalCopies}
                         language={language}
                       />
+                      {currentSize.description && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {currentSize.description}
+                        </p>
+                      )}
+                    </div>
 
-                      <div className="space-y-3">
-                        {capacityInfo && capacityInfo.available && (
-                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                              <span className="font-medium text-blue-700 dark:text-blue-300">
-                                {language === "en"
-                                  ? capacityInfo.daysUntilStart === 0
-                                    ? "Available today!"
-                                    : `Available in ${capacityInfo.daysUntilStart} day${capacityInfo.daysUntilStart > 1 ? 's' : ''}`
-                                  : capacityInfo.daysUntilStart === 0
-                                    ? "متاح اليوم!"
-                                    : `متاح خلال ${capacityInfo.daysUntilStart} يوم`}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                              <Calendar className="w-3 h-3" />
-                              <span>
-                                {language === "en"
-                                  ? `Estimated completion: ${capacityInfo.estimatedCompletion} days`
-                                  : `الوقت المتوقع للتسليم: ${capacityInfo.estimatedCompletion} يوم`}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-
-                        <Button
-                          size="lg"
-                          onClick={handleWhatsAppOrder}
-                          disabled={createOrderMutation.isPending || currentSize.remaining === 0}
-                          className="w-full bg-primary hover:bg-primary text-primary-foreground text-lg px-8 py-6 rounded-2xl flex items-center justify-center gap-2"
-                          data-testid="button-whatsapp-order"
-                        >
-                          <MessageCircle className="w-5 h-5" />
-                          {language === "en" ? "Order via WhatsApp" : "طلب عبر واتساب"}
-                        </Button>
-                        
-                        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                          <span className="text-green-600 font-semibold">💰</span>
-                          <span data-testid="text-guarantee">
-                            {language === "en" 
-                              ? "100% Money-Back Guarantee — 7-Day Trial, No Questions Asked"
-                              : "ضمان استرجاع 100% — تجربة 7 أيام بلا أسئلة"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-muted-foreground text-center" data-testid="text-shipping-note">
-                        {language === "en" 
-                          ? "Price does not include shipping costs."
-                          : "السعر لا يشمل تكاليف الشحن."}
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <p className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">
+                        {language === "en" ? "📋 Order Terms" : "📋 شروط الطلب"}
                       </p>
-                    </>
-                  )}
+                      <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-1 list-disc list-inside">
+                        <li>
+                          {language === "en" 
+                            ? "Pre-payment required to confirm reservation"
+                            : "🔒 الدفع مقدّم لتأكيد الحجز"}
+                        </li>
+                        <li>
+                          {language === "en" 
+                            ? "48-hour full refund period from payment (if you change your mind)"
+                            : "🕒 عندك 48 ساعة كاملة من لحظة الدفع لاسترداد المبلغ بالكامل لو غيرت رأيك"}
+                        </li>
+                        <li>
+                          {language === "en" 
+                            ? "After 48 hours, artwork production begins - no refunds as work is custom-made for you"
+                            : "🎨 بعد الـ 48 ساعة ببدأ تنفيذ اللوحة وما بيكونش فيه استرداد لأن العمل بيتنفّذ مخصوص ليك"}
+                        </li>
+                      </ul>
+                    </div>
+
+                    <WhatsAppButton
+                      artworkId={product.id}
+                      artworkTitle={product.title}
+                      size={currentSize.size}
+                      price={currentSize.price}
+                      language={language}
+                    />
+
+                    <p className="text-sm text-muted-foreground text-center" data-testid="text-shipping-note">
+                      {language === "en" 
+                        ? "Price does not include shipping costs."
+                        : "السعر لا يشمل تكاليف الشحن."}
+                    </p>
+                  </div>
                 </>
               )}
 
-              {artwork.story && (
+              {product.story && (
                 <div>
                   <h3 className="font-serif text-2xl font-semibold mb-3" data-testid="text-story-title">
                     {language === "en" ? "The Story" : "القصة"}
                   </h3>
                   <div className={`text-muted-foreground leading-relaxed ${!storyExpanded && "line-clamp-4"}`} data-testid="text-story">
-                    {artwork.story}
+                    {product.story}
                   </div>
                   <button
                     onClick={() => setStoryExpanded(!storyExpanded)}

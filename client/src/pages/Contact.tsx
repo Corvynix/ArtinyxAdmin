@@ -18,7 +18,7 @@ export default function Contact() {
     instagram: {
       title: "Instagram",
       description: "Follow us for behind-the-scenes content and new arrivals",
-      button: "Follow @artinyxus"
+      button: "Follow @artynixus"
     },
     hours: {
       title: "Response Time",
@@ -36,7 +36,7 @@ export default function Contact() {
     instagram: {
       title: "إنستجرام",
       description: "تابعنا للحصول على محتوى من وراء الكواليس والإصدارات الجديدة",
-      button: "تابع @artinyxus"
+      button: "تابع @artynixus"
     },
     hours: {
       title: "وقت الاستجابة",
@@ -48,11 +48,11 @@ export default function Contact() {
     const message = language === "en"
       ? "Hello! I have a question about Artinyxus."
       : "مرحباً! لدي سؤال حول Artinyxus.";
-    window.open(`https://wa.me/201234567890?text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://wa.me/201551498838?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleInstagram = () => {
-    window.open("https://instagram.com/artinyxus", "_blank");
+    window.open("https://www.instagram.com/artynixus", "_blank");
   };
 
   return (

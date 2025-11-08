@@ -74,6 +74,15 @@ export const bidsAPI = {
 
 export const analyticsAPI = {
   track: async (event: AnalyticsEvent) => {
-    return apiRequest("POST", "/api/analytics", event);
+    try {
+      return await apiRequest("POST", "/api/analytics", event);
+    } catch (error) {
+      // Silently fail analytics in development to not break UI
+      if (import.meta.env.DEV) {
+        console.warn("[Analytics] Failed to track event (dev mode):", error);
+        return { success: true, skipped: true };
+      }
+      throw error;
+    }
   }
 };

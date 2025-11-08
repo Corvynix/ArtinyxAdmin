@@ -28,8 +28,17 @@ const orderLimiter = rateLimit({
   message: "Too many orders, please try again later.",
 });
 
+const bidLimiter = rateLimit({
+  windowMs: 5 * 1000, // 5 seconds
+  max: 1, // 1 bid per 5 seconds per IP
+  message: "Please wait before placing another bid.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use("/api/", apiLimiter);
 app.use("/api/orders", orderLimiter);
+app.use("/api/bids", bidLimiter);
 
 declare module 'http' {
   interface IncomingMessage {

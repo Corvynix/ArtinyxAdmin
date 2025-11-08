@@ -19,7 +19,20 @@ export default function AdminBids() {
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
-      setTimeout(() => { window.location.href = "/api/login"; }, 500);
+      if (import.meta.env.DEV) {
+        fetch("/api/auth/user", {
+          headers: { "x-admin-api-key": "dev-admin-key-12345" },
+          credentials: "include"
+        }).then(() => window.location.reload()).catch(() => {
+          toast({
+            title: "Database Connection Required",
+            description: "Please check your DATABASE_URL in .env file",
+            variant: "destructive",
+          });
+        });
+      } else {
+        setTimeout(() => { window.location.href = "/api/login"; }, 500);
+      }
     } else if (!authLoading && isAuthenticated && !isAdmin) {
       toast({
         title: "Access Denied",

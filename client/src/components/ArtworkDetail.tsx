@@ -158,7 +158,7 @@ export default function ArtworkDetail({
                   size={selectedSize}
                   price={currentSize.price}
                   language={language}
-                  onOrderCreate={() => console.log("Order created")}
+                  onOrderCreate={() => {}}
                 />
 
                 <p className="text-sm text-muted-foreground text-center" data-testid="text-shipping-note">

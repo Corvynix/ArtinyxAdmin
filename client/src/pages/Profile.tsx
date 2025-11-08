@@ -43,6 +43,7 @@ function OrderCard({ order, language, artworks }: {
     order.paymentMethod || "vodafone_cash"
   );
   const [paymentProof, setPaymentProof] = useState(order.paymentProof || "");
+  const [paymentReferenceNumber, setPaymentReferenceNumber] = useState(order.paymentReferenceNumber || "");
   const { toast } = useToast();
 
   const updateOrderMutation = useMutation({
@@ -109,7 +110,8 @@ function OrderCard({ order, language, artworks }: {
       orderId: order.id,
       data: {
         paymentMethod,
-        paymentProof
+        paymentProof,
+        paymentReferenceNumber: paymentReferenceNumber || undefined
       }
     });
   };
@@ -155,6 +157,36 @@ function OrderCard({ order, language, artworks }: {
             </div>
           </div>
 
+          {/* Queue Position & ETA Display (as per spec) */}
+          {(order.status === "confirmed" || order.status === "scheduled") && (
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+              {order.queuePosition && (
+                <div className="flex items-center gap-2 text-sm mb-2">
+                  <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <span className="font-semibold text-blue-700 dark:text-blue-300">
+                    {language === "en" 
+                      ? `Queue Position: #${order.queuePosition}`
+                      : `مكانك في قائمة الانتظار: #${order.queuePosition}`}
+                  </span>
+                </div>
+              )}
+              {order.scheduledStartDate && (
+                <div className="text-xs text-muted-foreground mb-1">
+                  {language === "en" 
+                    ? `Start Date: ${new Date(order.scheduledStartDate).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}`
+                    : `تاريخ بدء التنفيذ: ${new Date(order.scheduledStartDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}`}
+                </div>
+              )}
+              {order.estimatedCompletionDate && (
+                <div className="text-xs text-muted-foreground">
+                  {language === "en" 
+                    ? `Estimated Delivery: ${new Date(order.estimatedCompletionDate).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}`
+                    : `المتوقع الوصول: ${new Date(order.estimatedCompletionDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}`}
+                </div>
+              )}
+            </div>
+          )}
+
           {order.status === "pending" && (
             <div className="mt-4 p-4 bg-muted rounded-md space-y-3">
               <h4 className="font-semibold">
@@ -175,9 +207,19 @@ function OrderCard({ order, language, artworks }: {
               </div>
 
               <div className="space-y-2">
-                <Label>{language === "en" ? "Payment Reference / Screenshot URL" : "مرجع الدفع / رابط لقطة الشاشة"}</Label>
+                <Label>{language === "en" ? "Payment Reference Number" : "رقم مرجع العملية"}</Label>
                 <Input
-                  placeholder={language === "en" ? "Enter payment reference or URL" : "أدخل مرجع الدفع أو الرابط"}
+                  placeholder={language === "en" ? "Enter transaction reference number" : "أدخل رقم مرجع العملية"}
+                  value={paymentReferenceNumber}
+                  onChange={(e) => setPaymentReferenceNumber(e.target.value)}
+                  data-testid="input-payment-reference"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>{language === "en" ? "Payment Proof (Screenshot URL)" : "إثبات الدفع (رابط لقطة الشاشة)"}</Label>
+                <Input
+                  placeholder={language === "en" ? "Enter screenshot URL or image link" : "أدخل رابط لقطة الشاشة أو صورة"}
                   value={paymentProof}
                   onChange={(e) => setPaymentProof(e.target.value)}
                   data-testid="input-payment-proof"
